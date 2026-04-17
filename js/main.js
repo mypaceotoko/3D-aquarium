@@ -185,8 +185,36 @@ const hint      = document.getElementById('hint');
 const btnAmbient = document.getElementById('btn-ambient');
 const btnSound   = document.getElementById('btn-sound');
 const btnFeed    = document.getElementById('btn-feed');
+const btnBright   = document.getElementById('btn-bright');
 const btnUiToggle = document.getElementById('btn-ui-toggle');
 const speciesBtns = document.querySelectorAll('.species-btn');
+
+// --- Brightness (tone-mapping exposure) cycle -------------------------
+const EXPOSURE_KEY = 'aquarium.exposure';
+const EXPOSURE_LEVELS = [
+  { label: '暗め',   value: 0.60 },
+  { label: '標準',   value: 0.95 },
+  { label: '明るめ', value: 1.45 },
+];
+let exposureIdx = 1;
+try {
+  const s = localStorage.getItem(EXPOSURE_KEY);
+  const n = s === null ? NaN : parseInt(s, 10);
+  if (Number.isFinite(n) && n >= 0 && n < EXPOSURE_LEVELS.length) exposureIdx = n;
+} catch (_) {}
+
+function applyExposure() {
+  const lvl = EXPOSURE_LEVELS[exposureIdx];
+  renderer.toneMappingExposure = lvl.value;
+  btnBright.textContent = `明 ${lvl.label}`;
+  try { localStorage.setItem(EXPOSURE_KEY, String(exposureIdx)); } catch (_) {}
+}
+applyExposure();
+
+btnBright.addEventListener('click', () => {
+  exposureIdx = (exposureIdx + 1) % EXPOSURE_LEVELS.length;
+  applyExposure();
+});
 
 // --- Collapsible UI panel ---------------------------------------------
 const UI_COLLAPSED_KEY = 'aquarium.uiCollapsed';
