@@ -354,6 +354,9 @@ export class Leviathan extends Creature {
     this._circleAngle   = Math.random() * Math.PI * 2;
     this._circleDir     = 1;
     this._circleR       = 15;
+
+    this._foodCurious     = false;
+    this._preCuriousSpeed = 1.85;
   }
 
   onUpdate(dt, time, state) {
@@ -368,7 +371,8 @@ export class Leviathan extends Creature {
     u.uPitch.value = this._pitchTarget;
 
     // ── Behavior state machine ─────────────────────────────────────────────
-    this._updateBehavior(dt);
+    this._updateBehavior(dt, state);
+    this._handleFoodCuriosity(state);
 
     // ── Burst — overlaid on top of current behavior ────────────────────────
     if (this._isBursting) {
@@ -451,62 +455,104 @@ export class Leviathan extends Creature {
 
   /**
    * Advance the behavior timer; choose a new behavior when it expires.
-   * Called every frame from onUpdate. Burst is handled separately and does
-   * NOT interrupt the behavior — only temporarily overrides speed.
+   * In ambient mode, CIRCLE and PATROL are heavily favoured so the Leviathan
+   * performs impressive cinematic sweeps for passive viewers.
    */
-  _updateBehavior(dt) {
-    if (this._isBursting) return;   // don't transition while charging
+  _updateBehavior(dt, state) {
+    if (this._isBursting) return;
 
     this._behaviorTimer -= dt;
-    if (this._behaviorTimer > 0)   return;
+    if (this._behaviorTimer > 0) return;
 
-    // ── Weighted behavior picker ──────────────────────────────────────────
-    const roll = Math.random();
+    const ambient = state?.ambient ?? false;
+    const roll    = Math.random();
 
-    if (roll < 0.28) {
-      // PATROL: 4-corner diagonal sweeps fill the full tank
-      this._behavior      = 'PATROL';
-      this._behaviorTimer = THREE.MathUtils.randFloat(24, 40);
-      this._behaviorSpeed = 2.2;
-      this.cfg.maxAccel   = 0.55;
-      this._patrolCorner  = (this._patrolCorner + Math.floor(Math.random() * 2) + 1) % 4;
-    } else if (roll < 0.42) {
-      // DIVE: dramatic plunge to the seafloor
-      this._behavior      = 'DIVE';
-      this._behaviorTimer = THREE.MathUtils.randFloat(10, 18);
-      this._behaviorSpeed = 2.6;
-      this.cfg.maxAccel   = 0.70;
-    } else if (roll < 0.56) {
-      // ASCENT: rise toward the surface
-      this._behavior      = 'ASCENT';
-      this._behaviorTimer = THREE.MathUtils.randFloat(10, 16);
-      this._behaviorSpeed = 2.2;
-      this.cfg.maxAccel   = 0.58;
-    } else if (roll < 0.70) {
-      // CIRCLE: wide orbital arc, optional direction reversal
-      this._behavior      = 'CIRCLE';
-      this._behaviorTimer = THREE.MathUtils.randFloat(20, 32);
-      this._behaviorSpeed = 2.0;
-      this.cfg.maxAccel   = 0.50;
-      this._circleAngle   = Math.atan2(this.pos.z, this.pos.x);
-      this._circleDir     = Math.random() < 0.5 ? 1 : -1;
-      this._circleR       = THREE.MathUtils.randFloat(12, 18);
-    } else if (roll < 0.82) {
-      // HOVER: slow drift — "the leviathan is watching"
-      this._behavior      = 'HOVER';
-      this._behaviorTimer = THREE.MathUtils.randFloat(5, 9);
-      this._behaviorSpeed = 0.55;
-      this.cfg.maxAccel   = 0.25;
-    } else {
-      // CRUISE: wide random wander (default)
-      this._behavior      = 'CRUISE';
-      this._behaviorTimer = THREE.MathUtils.randFloat(10, 18);
-      this._behaviorSpeed = 1.85;
-      this.cfg.maxAccel   = 0.50;
+    // Ambient: CIRCLE 38 %, PATROL 27 %, DIVE 8 %, ASCENT 8 %, HOVER 6 %, CRUISE 13 %
+    // Normal:  PATROL 28 %, DIVE 14 %, ASCENT 14 %, CIRCLE 14 %, HOVER 12 %, CRUISE 18 %
+    const name = ambient
+      ? (roll < 0.38 ? 'CIRCLE'
+       : roll < 0.65 ? 'PATROL'
+       : roll < 0.73 ? 'DIVE'
+       : roll < 0.81 ? 'ASCENT'
+       : roll < 0.87 ? 'HOVER'
+       : 'CRUISE')
+      : (roll < 0.28 ? 'PATROL'
+       : roll < 0.42 ? 'DIVE'
+       : roll < 0.56 ? 'ASCENT'
+       : roll < 0.70 ? 'CIRCLE'
+       : roll < 0.82 ? 'HOVER'
+       : 'CRUISE');
+
+    this._behavior = name;
+    switch (name) {
+      case 'PATROL':
+        this._behaviorTimer = THREE.MathUtils.randFloat(24, 40);
+        this._behaviorSpeed = 2.2;
+        this.cfg.maxAccel   = 0.55;
+        this._patrolCorner  = (this._patrolCorner + Math.floor(Math.random() * 2) + 1) % 4;
+        break;
+      case 'DIVE':
+        this._behaviorTimer = THREE.MathUtils.randFloat(10, 18);
+        this._behaviorSpeed = 2.6;
+        this.cfg.maxAccel   = 0.70;
+        break;
+      case 'ASCENT':
+        this._behaviorTimer = THREE.MathUtils.randFloat(10, 16);
+        this._behaviorSpeed = 2.2;
+        this.cfg.maxAccel   = 0.58;
+        break;
+      case 'CIRCLE':
+        this._behaviorTimer = THREE.MathUtils.randFloat(ambient ? 28 : 20, ambient ? 42 : 32);
+        this._behaviorSpeed = 2.0;
+        this.cfg.maxAccel   = 0.50;
+        this._circleAngle   = Math.atan2(this.pos.z, this.pos.x);
+        this._circleDir     = Math.random() < 0.5 ? 1 : -1;
+        this._circleR       = THREE.MathUtils.randFloat(12, 18);
+        break;
+      case 'HOVER':
+        this._behaviorTimer = THREE.MathUtils.randFloat(5, 9);
+        this._behaviorSpeed = 0.55;
+        this.cfg.maxAccel   = 0.25;
+        break;
+      default:  // CRUISE
+        this._behaviorTimer = THREE.MathUtils.randFloat(10, 18);
+        this._behaviorSpeed = 1.85;
+        this.cfg.maxAccel   = 0.50;
     }
 
     this.cfg.speed = this._behaviorSpeed;
-    this.pickTarget();  // immediately head somewhere fitting the new behavior
+    this.pickTarget();
+  }
+
+  /**
+   * Food curiosity — when food is active and nearby the Leviathan redirects
+   * toward it from above, looming without eating.  Clears automatically when
+   * the food is gone or out of range.
+   */
+  _handleFoodCuriosity(state) {
+    if (this._isBursting) {
+      if (this._foodCurious) { this._foodCurious = false; this.cfg.speed = this._behaviorSpeed; }
+      return;
+    }
+
+    const fp = state?.food;
+    const near = fp?.active && this.pos.distanceTo(fp.position) < 22;
+
+    if (near) {
+      // Aim to position just above and in front of the food
+      const ty = THREE.MathUtils.clamp(fp.position.y + 3.5, this.cfg.depthMin, this.cfg.depthMax);
+      this.target.set(fp.position.x, ty, fp.position.z);
+      this.wanderT = Math.max(this.wanderT, 3.5);   // sustain approach
+
+      if (!this._foodCurious) {
+        this._foodCurious     = true;
+        this._preCuriousSpeed = this._behaviorSpeed;
+        this.cfg.speed        = Math.min(this._behaviorSpeed * 1.45, 2.8);
+      }
+    } else if (this._foodCurious) {
+      this._foodCurious = false;
+      this.cfg.speed    = this._behaviorSpeed;   // restore pre-curiosity speed
+    }
   }
 
   /**
