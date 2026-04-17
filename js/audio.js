@@ -20,6 +20,7 @@ export function initAudio({ state, getCreatures }) {
   let started = false;
 
   let nextBubbleAt = 0;
+  let leviathanG = null;   // leviathan low-frequency moan gain
 
   function ensureContext() {
     if (ctx) return ctx;
@@ -97,6 +98,33 @@ export function initAudio({ state, getCreatures }) {
     lfoGain.gain.value = 0.06;
     lfo.connect(lfoGain).connect(swellG.gain);
     lfo.start();
+
+    // ---- Leviathan layer (sub-bass moan, slow LFO) ----------------
+    const levSrc = ctx.createBufferSource();
+    levSrc.buffer = buf;
+    levSrc.loop = true;
+    levSrc.detune.value = -1200;           // one octave down — deep sub-bass
+    const levLP = ctx.createBiquadFilter();
+    levLP.type = 'lowpass';
+    levLP.frequency.value = 90;
+    levLP.Q.value = 1.4;
+    leviathanG = ctx.createGain();
+    leviathanG.gain.value = 0.0;           // starts silent; ramped on leviathan burst
+    levSrc.connect(levLP).connect(leviathanG).connect(master);
+    levSrc.start();
+    // Slow LFO for whale-like moan swell
+    const levLfoBuf = ctx.createBuffer(1, ctx.sampleRate * 14, ctx.sampleRate);
+    const levLfoData = levLfoBuf.getChannelData(0);
+    for (let i = 0; i < levLfoData.length; i++) {
+      levLfoData[i] = (Math.sin((i / levLfoData.length) * Math.PI * 2) + 1) / 2;
+    }
+    const levLfo = ctx.createBufferSource();
+    levLfo.buffer = levLfoBuf;
+    levLfo.loop = true;
+    const levLfoG = ctx.createGain();
+    levLfoG.gain.value = 0.28;
+    levLfo.connect(levLfoG).connect(leviathanG.gain);
+    levLfo.start();
 
     // ---- Motion layer (tracks fish speed) --------------------------
     const motionSrc = ctx.createBufferSource();
@@ -215,17 +243,25 @@ export function initAudio({ state, getCreatures }) {
   function update(dt, time) {
     if (!started || !ctx) return;
 
-    // Motion gain tracks mean fish speed
+    // Motion gain tracks mean fish speed; leviathan gain tracks its own speed
     const creatures = getCreatures?.() ?? [];
     let sum = 0, n = 0;
+    let levSpeed = 0;
     for (const c of creatures) {
       if (c.speedNorm !== undefined) { sum += c.speedNorm; n++; }
+      if (c.species === 'leviathan') levSpeed = c.speedNorm ?? 0;
     }
     const meanSpeed = n > 0 ? sum / n : 0;
     const targetMotion = 0.02 + meanSpeed * 0.06;
-    // Smooth
     const cur = motionG.gain.value;
     motionG.gain.value = cur + (targetMotion - cur) * Math.min(1, dt * 1.5);
+
+    // Leviathan sub-bass: louder during bursts
+    if (leviathanG) {
+      const targetLev = 0.08 + levSpeed * 0.20;
+      const curLev = leviathanG.gain.value;
+      leviathanG.gain.value = curLev + (targetLev - curLev) * Math.min(1, dt * 0.8);
+    }
 
     // Periodic bubble sfx
     if (time > nextBubbleAt) {

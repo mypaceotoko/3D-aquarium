@@ -6,6 +6,7 @@ import { Gar }          from './creatures/Gar.js';
 import { Pirarucu }     from './creatures/Pirarucu.js';
 import { Trilobite }    from './creatures/Trilobite.js';
 import { GiantIsopod }  from './creatures/GiantIsopod.js';
+import { Leviathan }    from './creatures/Leviathan.js';
 import { initControls } from './controls.js';
 import { initAudio }    from './audio.js';
 
@@ -69,6 +70,9 @@ for (let i = 0; i < counts.gar; i++)        creatures.push(addToScene(new Gar({ 
 for (let i = 0; i < counts.pirarucu; i++)   creatures.push(addToScene(new Pirarucu({ castShadow: !isMobile })));
 for (let i = 0; i < counts.trilobite; i++)  creatures.push(addToScene(new Trilobite({ castShadow: !isMobile })));
 for (let i = 0; i < counts.isopod; i++)     creatures.push(addToScene(new GiantIsopod({ castShadow: !isMobile })));
+
+// Leviathan — always exactly one, regardless of mobile/desktop
+creatures.push(addToScene(new Leviathan({ castShadow: !isMobile })));
 
 function addToScene(c) { scene.add(c.mesh); return c; }
 

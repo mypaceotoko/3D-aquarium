@@ -116,6 +116,7 @@ export function initControls({
 
   function creatureHitRadius(c) {
     switch (c.species) {
+      case 'leviathan':  return 7.0;
       case 'pirarucu':   return 3.0;
       case 'coelacanth': return 2.6;
       case 'gar':        return 2.2;
@@ -127,11 +128,12 @@ export function initControls({
   }
 
   function makeFollow(c) {
-    const offset = new THREE.Vector3(-5.5, 2.2, 5.5);
+    const dist = c.species === 'leviathan' ? 14 : 5.5;
+    const offset = new THREE.Vector3(-dist, dist * 0.35, dist);
     return {
       creature: c,
       offset,
-      blend: 0,          // 0 = at orbit pos, 1 = fully at follow pos
+      blend: 0,
     };
   }
 
@@ -142,6 +144,8 @@ export function initControls({
     { pos: new THREE.Vector3( 22, 6.0,-18), look: new THREE.Vector3(-3, 2,  2) },
     { pos: new THREE.Vector3( 18,-2.0, 22), look: new THREE.Vector3( 0,-4, -2) },
     { pos: new THREE.Vector3(-18, 8.5,-10), look: new THREE.Vector3( 0, 1,  4) },
+    // Leviathan showcase: wide angle from below, looking up at the open water
+    { pos: new THREE.Vector3(  8,-5.0, 30), look: new THREE.Vector3( 0, 1,  0) },
   ];
   let wpIdx = 0;
   let wpT = 0;

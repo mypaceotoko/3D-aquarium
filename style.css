@@ -141,6 +141,21 @@ html, body {
 }
 .btn.accent:hover { filter: brightness(1.08); }
 
+/* Leviathan button — stands out as the apex creature */
+.leviathan-btn {
+  background: linear-gradient(140deg, rgba(0, 80, 90, 0.85), rgba(0, 40, 60, 0.85));
+  border-color: rgba(0, 210, 180, 0.55);
+  color: #7aede0;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-shadow: 0 0 8px rgba(0, 230, 200, 0.6);
+}
+.leviathan-btn:hover {
+  background: linear-gradient(140deg, rgba(0, 100, 110, 0.9), rgba(0, 55, 75, 0.9));
+  border-color: rgba(0, 230, 200, 0.75);
+  filter: brightness(1.12);
+}
+
 .species .btn {
   min-width: 0;
   font-size: 11px;
