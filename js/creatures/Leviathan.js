@@ -272,15 +272,31 @@ export class Leviathan extends Creature {
       group.add(pupil);
     }
 
-    // ── Bioluminescent glow lights ─────────────────────────────────────────
-    // Central body glow
-    const glowBody = new THREE.PointLight(0x00e8c8, 3.5, 14 * scale, 2);
-    glowBody.position.set(0, 0, 0);
-    group.add(glowBody);
-    // Head glow
-    const glowHead = new THREE.PointLight(0x40d8f0, 2.0, 8 * scale, 2);
-    glowHead.position.set(+L * 0.30, 0, 0);
+    // ── Lighting — 4-point rig tuned for MeshPhysicalMaterial clearcoat ──────
+    //
+    //  glowChest  — main bioluminescent fill, ABOVE body centre so clearcoat
+    //               specular reflects toward the camera at typical viewing angles
+    //  glowHead   — head spot from upper-front, dramatic facial shadows + horn rim
+    //  glowRim    — cool blue backlight from tail end, separates silhouette from
+    //               the dark background and back-lights the translucent fins
+    //  glowBelly  — soft upwelling from below, mimics caustic light bouncing off
+    //               the seafloor (always present in real aquariums)
+    //
+    const glowChest = new THREE.PointLight(0x00d8b8, 2.8, 13 * scale, 2);
+    glowChest.position.set(L * 0.05, 1.0 * scale, 0);   // chest, slightly above body
+    group.add(glowChest);
+
+    const glowHead = new THREE.PointLight(0x60e0ff, 2.0, 9 * scale, 2);
+    glowHead.position.set(+L * 0.38, 1.4 * scale, 0);   // above the brow ridges
     group.add(glowHead);
+
+    const glowRim = new THREE.PointLight(0x0058c8, 1.5, 18 * scale, 2);
+    glowRim.position.set(-L * 0.42, -0.4 * scale, 0);   // behind tail, slightly below
+    group.add(glowRim);
+
+    const glowBelly = new THREE.PointLight(0x158888, 0.9, 7 * scale, 2);
+    glowBelly.position.set(0, -1.4 * scale, 0);          // below belly
+    group.add(glowBelly);
 
     // ── Super ─────────────────────────────────────────────────────────────
     super({
@@ -309,8 +325,10 @@ export class Leviathan extends Creature {
     this._uniforms    = uniforms;
     this._scale       = scale;
     this._pectorals   = pectorals;
-    this._glowBody    = glowBody;
+    this._glowChest   = glowChest;
     this._glowHead    = glowHead;
+    this._glowRim     = glowRim;
+    this._glowBelly   = glowBelly;
     this._pitchTarget = 0;
 
     // Burst state
@@ -370,10 +388,29 @@ export class Leviathan extends Creature {
       p.rotation.y = p.userData.baseRY + w * 0.12;
     }
 
-    // ── Glow pulse ─────────────────────────────────────────────────────────
-    const glowBase = this._isBursting ? 5.0 : 3.5;
-    this._glowBody.intensity = glowBase + Math.sin(time * 1.8) * 0.5;
-    this._glowHead.intensity = (this._isBursting ? 3.2 : 2.0) + Math.sin(time * 2.3 + 1) * 0.3;
+    // ── Glow pulse — four lights pulsing with organic offsets ─────────────
+    // During burst: sharp electric flicker; at rest: slow bioluminescent breathe
+    const burst = this._isBursting;
+    const slowBreath  = Math.sin(time * 0.9) * 0.18;           // 0.9 Hz — lazy
+    const midBreath   = Math.sin(time * 1.4 + 0.8) * 0.22;     // slightly faster
+    const rimBreath   = Math.sin(time * 0.6 + 2.1) * 0.12;     // very slow
+    const burstFlick  = burst ? Math.sin(time * 14.0) * 0.6 : 0; // fast flicker
+
+    this._glowChest.intensity =
+      (burst ? 4.8 : 2.8) + slowBreath + burstFlick;
+    this._glowHead.intensity  =
+      (burst ? 3.4 : 2.0) + midBreath  + burstFlick * 0.7;
+    this._glowRim.intensity   =
+      (burst ? 2.6 : 1.5) + rimBreath  + burstFlick * 0.5;
+    this._glowBelly.intensity =
+      (burst ? 1.4 : 0.9) + slowBreath * 0.4;
+
+    // During burst shift chest colour toward electric white-blue
+    if (burst) {
+      this._glowChest.color.setHex(0x40f8ff);
+    } else {
+      this._glowChest.color.setHex(0x00d8b8);
+    }
   }
 }
 
