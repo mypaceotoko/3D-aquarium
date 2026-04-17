@@ -60,34 +60,51 @@ export class Leviathan extends Creature {
     const uniforms = makeLeviathanUniforms({ length: L });
 
     // ── Body (lathe, long serpentine) ─────────────────────────────────────
+    // High-res profile (22 pts) for smooth silhouette + 32 radial segments
+    // to eliminate visible polygon facets around the body.
     const bodyProfile = [
-      new THREE.Vector2(0.02,  +L * 0.501),
-      new THREE.Vector2(0.20,  +L * 0.490),
-      new THREE.Vector2(0.50,  +L * 0.460),
-      new THREE.Vector2(0.78,  +L * 0.400),
-      new THREE.Vector2(0.92,  +L * 0.340),
-      new THREE.Vector2(0.82,  +L * 0.260),  // neck dip
-      new THREE.Vector2(1.05,  +L * 0.150),  // shoulder flare
-      new THREE.Vector2(1.10,  +L * 0.020),  // chest — widest
-      new THREE.Vector2(1.08,  -L * 0.100),
-      new THREE.Vector2(1.00,  -L * 0.220),
-      new THREE.Vector2(0.88,  -L * 0.330),
-      new THREE.Vector2(0.72,  -L * 0.400),
-      new THREE.Vector2(0.50,  -L * 0.445),
-      new THREE.Vector2(0.28,  -L * 0.470),
-      new THREE.Vector2(0.10,  -L * 0.490),
-      new THREE.Vector2(0.02,  -L * 0.501),
+      new THREE.Vector2(0.02,  +L * 0.500),  // snout tip
+      new THREE.Vector2(0.14,  +L * 0.492),
+      new THREE.Vector2(0.32,  +L * 0.478),
+      new THREE.Vector2(0.55,  +L * 0.455),  // upper jaw line
+      new THREE.Vector2(0.78,  +L * 0.420),
+      new THREE.Vector2(0.94,  +L * 0.375),  // brow
+      new THREE.Vector2(1.02,  +L * 0.325),  // head-back crest
+      new THREE.Vector2(0.88,  +L * 0.275),  // neck dip (slender)
+      new THREE.Vector2(0.95,  +L * 0.210),
+      new THREE.Vector2(1.08,  +L * 0.130),  // shoulder flare
+      new THREE.Vector2(1.14,  +L * 0.030),  // widest chest
+      new THREE.Vector2(1.12,  -L * 0.060),
+      new THREE.Vector2(1.06,  -L * 0.160),
+      new THREE.Vector2(0.98,  -L * 0.250),
+      new THREE.Vector2(0.86,  -L * 0.330),
+      new THREE.Vector2(0.70,  -L * 0.390),
+      new THREE.Vector2(0.52,  -L * 0.430),
+      new THREE.Vector2(0.36,  -L * 0.455),
+      new THREE.Vector2(0.22,  -L * 0.475),
+      new THREE.Vector2(0.10,  -L * 0.488),
+      new THREE.Vector2(0.03,  -L * 0.498),
+      new THREE.Vector2(0.01,  -L * 0.501),
     ];
-    const bodyGeo = new THREE.LatheGeometry(bodyProfile, 18);
+    const bodyGeo = new THREE.LatheGeometry(bodyProfile, 32);
     bodyGeo.rotateZ(-Math.PI / 2);
-    // Flatten top-bottom near head (sea-dragon look)
+    // Sculpt the silhouette: lateral compression + head flatten
     {
       const p = bodyGeo.attributes.position;
       for (let i = 0; i < p.count; i++) {
         const x = p.getX(i);
-        const headBlend = THREE.MathUtils.smoothstep(x, L * 0.1, L * 0.42);
-        p.setY(i, p.getY(i) * THREE.MathUtils.lerp(0.90, 0.68, headBlend));
-        p.setZ(i, p.getZ(i) * 0.85); // slightly narrower overall
+        const y = p.getY(i);
+        const z = p.getZ(i);
+        // Head flatten (top-bottom)
+        const headBlend = THREE.MathUtils.smoothstep(x, L * 0.12, L * 0.44);
+        const yScale = THREE.MathUtils.lerp(0.92, 0.66, headBlend);
+        // Body slight lateral compression (sleek like sea-snake)
+        const zScale = THREE.MathUtils.lerp(0.88, 0.80, headBlend);
+        // Belly keel (subtly flatter underside in body middle)
+        const bellyT = THREE.MathUtils.smoothstep(x, -L * 0.30, L * 0.05);
+        const bellyFlat = 1.0 - (y < 0 ? bellyT * 0.18 : 0);
+        p.setY(i, y * yScale * bellyFlat);
+        p.setZ(i, z * zScale);
       }
       bodyGeo.computeVertexNormals();
     }
@@ -107,18 +124,37 @@ export class Leviathan extends Creature {
     body.castShadow = !!opts.castShadow;
     group.add(body);
 
-    // ── Dorsal ridge fins (3 crests along back, standing upright) ─────────
+    // ── Dorsal ridge fins (3 crests along back, 3D with bevel) ────────────
     const dorsalMat = injectLeviathanBend(
       makeFinMat(0x1a7888, new THREE.Color(0x00e8c0), 0.80),
       uniforms,
     );
     const dorsalDefs = [
       { atX: +L * 0.27, h: 1.60 * scale, len: 1.9 * scale },
-      { atX:  0,         h: 2.00 * scale, len: 2.3 * scale },  // tallest
-      { atX: -L * 0.21,  h: 1.45 * scale, len: 1.7 * scale },
+      { atX:  0,        h: 2.10 * scale, len: 2.4 * scale },  // tallest central crest
+      { atX: -L * 0.21, h: 1.45 * scale, len: 1.7 * scale },
     ];
     for (const d of dorsalDefs) {
       group.add(makeDorsalFin(dorsalMat, d, scale));
+    }
+
+    // Inter-crest spinal spines (7 small dorsal spikes for a dragon ridge)
+    const spineMat = injectLeviathanBend(
+      makeFinMat(0x1a6878, new THREE.Color(0x00c0a0), 0.95),
+      uniforms,
+    );
+    const spineRanges = [
+      { from: +L * 0.26, to: +L * 0.03, count: 3, h: 0.30 },
+      { from: -L * 0.04, to: -L * 0.20, count: 2, h: 0.28 },
+      { from: -L * 0.22, to: -L * 0.38, count: 2, h: 0.20 },
+    ];
+    for (const r of spineRanges) {
+      for (let i = 0; i < r.count; i++) {
+        const t = (i + 1) / (r.count + 1);
+        const x = THREE.MathUtils.lerp(r.from, r.to, t);
+        const spine = makeSpinalSpike(spineMat, x, r.h * scale, scale);
+        group.add(spine);
+      }
     }
 
     // ── Tail fluke (horizontal lunate, like a whale) ───────────────────────
@@ -143,25 +179,68 @@ export class Leviathan extends Creature {
       group.add(pec);
     }
 
-    // ── Head horns / crests ───────────────────────────────────────────────
+    // ── Head horns / crests (curved tubes, not straight cones) ────────────
     const hornMat = new THREE.MeshStandardMaterial({
       color: 0x1a5a68, roughness: 0.5, metalness: 0.15,
       emissive: new THREE.Color(0x00a888), emissiveIntensity: 0.6,
     });
+    // Two swept-back side horns, curving outward-upward-backward
     for (const side of [-1, 1]) {
-      const hg = new THREE.ConeGeometry(0.13 * scale, 0.70 * scale, 6);
-      hg.rotateX(Math.PI);
-      hg.rotateZ(-0.5 * side);
-      const horn = new THREE.Mesh(hg, hornMat);
-      horn.position.set(+L * 0.40, 0.62 * scale, 0.32 * scale * side);
+      const horn = makeCurvedHorn(hornMat, {
+        base:   new THREE.Vector3(+L * 0.42, 0.55 * scale, 0.32 * scale * side),
+        mid:    new THREE.Vector3(+L * 0.34, 1.00 * scale, 0.60 * scale * side),
+        tip:    new THREE.Vector3(+L * 0.22, 1.25 * scale, 0.68 * scale * side),
+        rBase:  0.14 * scale,
+        rTip:   0.015 * scale,
+      });
       group.add(horn);
     }
-    {
-      const cg = new THREE.ConeGeometry(0.15 * scale, 0.95 * scale, 6);
-      cg.rotateX(Math.PI);
-      const crest = new THREE.Mesh(cg, hornMat);
-      crest.position.set(+L * 0.37, 0.92 * scale, 0);
-      group.add(crest);
+    // Central tall crest, curving slightly forward
+    const crest = makeCurvedHorn(hornMat, {
+      base: new THREE.Vector3(+L * 0.38, 0.82 * scale, 0),
+      mid:  new THREE.Vector3(+L * 0.40, 1.30 * scale, 0),
+      tip:  new THREE.Vector3(+L * 0.36, 1.72 * scale, 0),
+      rBase: 0.16 * scale,
+      rTip:  0.018 * scale,
+    });
+    group.add(crest);
+
+    // ── Barbels / whiskers (4 trailing from lower jaw) ─────────────────────
+    const barbelMat = new THREE.MeshStandardMaterial({
+      color: 0x0e4858, roughness: 0.6, metalness: 0.1,
+      emissive: new THREE.Color(0x00a090), emissiveIntensity: 0.45,
+    });
+    const barbelDefs = [
+      { at: [+L * 0.455,  0.02 * scale,  0.18 * scale], len: 1.15 * scale, drop: 0.85 * scale, r: 0.028 * scale },
+      { at: [+L * 0.455,  0.02 * scale, -0.18 * scale], len: 1.15 * scale, drop: 0.85 * scale, r: 0.028 * scale },
+      { at: [+L * 0.440, -0.05 * scale,  0.32 * scale], len: 0.85 * scale, drop: 0.65 * scale, r: 0.022 * scale },
+      { at: [+L * 0.440, -0.05 * scale, -0.32 * scale], len: 0.85 * scale, drop: 0.65 * scale, r: 0.022 * scale },
+    ];
+    for (const b of barbelDefs) {
+      group.add(makeBarbel(barbelMat, b));
+    }
+
+    // ── Brow ridges above eyes (raised bony arches) ────────────────────────
+    const browMat = new THREE.MeshStandardMaterial({
+      color: 0x103848, roughness: 0.65, metalness: 0.1,
+      emissive: new THREE.Color(0x004838), emissiveIntensity: 0.4,
+    });
+    for (const side of [-1, 1]) {
+      const bg = new THREE.TorusGeometry(0.18 * scale, 0.045 * scale, 8, 14, Math.PI * 0.85);
+      const brow = new THREE.Mesh(bg, browMat);
+      brow.position.set(+L * 0.365, 0.32 * scale, 0.57 * scale * side);
+      brow.rotation.set(Math.PI * 0.5, 0, side > 0 ? -0.2 : 0.2);
+      brow.scale.set(1.1, 1, 0.7);
+      group.add(brow);
+    }
+
+    // ── Nostril bumps (small raised spheres on snout) ──────────────────────
+    for (const side of [-1, 1]) {
+      const ng = new THREE.SphereGeometry(0.05 * scale, 8, 6);
+      const nostril = new THREE.Mesh(ng, browMat);
+      nostril.position.set(+L * 0.465, 0.18 * scale, 0.18 * scale * side);
+      nostril.scale.set(1.2, 0.7, 0.9);
+      group.add(nostril);
     }
 
     // ── Eyes (bright glowing amber) ───────────────────────────────────────
@@ -288,11 +367,23 @@ export class Leviathan extends Creature {
 // Geometry helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** Extrude options shared by all fins — thin but 3D with bevel. */
+function finExtrude(depth, bevel = 0.03) {
+  return {
+    depth,
+    bevelEnabled: true,
+    bevelSegments: 2,
+    bevelSize: bevel,
+    bevelThickness: bevel,
+    steps: 1,
+    curveSegments: 12,
+  };
+}
+
 /**
- * Dorsal fin: a swept-back triangular crest standing upright (+Y).
- * The ShapeGeometry is in the XY plane — no extra rotation needed.
- * atX is baked into the geometry so the fin tracks the correct body segment
- * under the vertex-shader wave.
+ * Dorsal fin: swept-back triangular crest with real thickness + bevel.
+ * The Shape is extruded in +Z then centered so the fin is a flat
+ * membrane standing upright in the body's XY plane.
  */
 function makeDorsalFin(mat, { atX, h, len }, scale) {
   const s = new THREE.Shape();
@@ -304,11 +395,11 @@ function makeDorsalFin(mat, { atX, h, len }, scale) {
   s.quadraticCurveTo(-len * 0.88, h * 0.28, -len * 0.92, 0);
   s.quadraticCurveTo(-len * 0.40, 0.04,      0,           0.02);
   s.lineTo( len * 0.25,  0);
-  const geo = new THREE.ShapeGeometry(s, 10);
-  // Bake X offset so the fin sits at the right body segment
-  geo.translate(atX, 0, 0);
+  const depth = 0.14 * scale;
+  const geo = new THREE.ExtrudeGeometry(s, finExtrude(depth, 0.035 * scale));
+  // Center thickness around Z=0 so the fin sits on the dorsal midline
+  geo.translate(atX, 0, -depth * 0.5);
   const mesh = new THREE.Mesh(geo, mat);
-  // Position above the body — fins stand in the XY plane (vertical)
   mesh.position.set(0, 0.98 * scale, 0);
   return mesh;
 }
@@ -321,8 +412,9 @@ function makeTailFluke(mat, L, scale) {
   s.quadraticCurveTo(-W * 1.32,  W * 0.25, -W * 1.28, 0);
   s.quadraticCurveTo(-W * 1.32, -W * 0.25, -W * 1.05, -W * 0.72);
   s.quadraticCurveTo(-W * 0.3,  -W * 0.65,  0, 0);
-  const geo = new THREE.ShapeGeometry(s, 14);
-  geo.translate(-L * 0.50, 0, 0);
+  const depth = 0.16 * scale;
+  const geo = new THREE.ExtrudeGeometry(s, finExtrude(depth, 0.04 * scale));
+  geo.translate(-L * 0.50, 0, -depth * 0.5);
   geo.rotateX(Math.PI / 2);  // horizontal fluke (whale-like)
   return new THREE.Mesh(geo, mat);
 }
@@ -336,11 +428,78 @@ function makePectoralFin(mat, { L, scale, side }) {
   s.quadraticCurveTo(-fL * 1.05, fH * 0.25, -fL * 1.0,  0);
   s.quadraticCurveTo(-fL * 0.45, -0.05, 0, 0.02);
   s.lineTo(fL * 0.15, 0);
-  const geo = new THREE.ShapeGeometry(s, 10);
+  const depth = 0.11 * scale;
+  const geo = new THREE.ExtrudeGeometry(s, finExtrude(depth, 0.03 * scale));
+  geo.translate(0, 0, -depth * 0.5);
   if (side < 0) geo.scale(1, -1, 1);
   const mesh = new THREE.Mesh(geo, mat);
   mesh.position.set(+L * 0.25, -0.35 * scale, 0.90 * scale * side);
   mesh.rotation.set(0, side > 0 ? -0.5 : 0.5, side > 0 ? -0.55 : 0.55);
+  return mesh;
+}
+
+/** Curved horn built from a TubeGeometry along a Catmull-Rom spline. */
+function makeCurvedHorn(mat, { base, mid, tip, rBase, rTip }) {
+  const curve = new THREE.CatmullRomCurve3([base, mid, tip], false, 'catmullrom', 0.5);
+  // Taper via radius function: TubeGeometry has constant radius, so we
+  // taper after construction by scaling Y/Z of each vertex ring.
+  const segs = 18;
+  const geo = new THREE.TubeGeometry(curve, segs, rBase, 10, false);
+  // Apply linear taper along the curve (u coordinate lives in the vertex ID:
+  // TubeGeometry produces (segs+1) rings of (radialSegs+1) vertices).
+  const RAD = 10 + 1;
+  const p = geo.attributes.position;
+  const center = new THREE.Vector3();
+  for (let ring = 0; ring <= segs; ring++) {
+    const t = ring / segs;
+    const rScale = THREE.MathUtils.lerp(1, rTip / rBase, t * t);
+    curve.getPointAt(t, center);
+    for (let r = 0; r < RAD; r++) {
+      const i = ring * RAD + r;
+      const vx = p.getX(i), vy = p.getY(i), vz = p.getZ(i);
+      const dx = vx - center.x, dy = vy - center.y, dz = vz - center.z;
+      p.setXYZ(i, center.x + dx * rScale, center.y + dy * rScale, center.z + dz * rScale);
+    }
+  }
+  geo.computeVertexNormals();
+  return new THREE.Mesh(geo, mat);
+}
+
+/** Flexible barbel — a short drooping tube from the jaw. */
+function makeBarbel(mat, { at, len, drop, r }) {
+  const start = new THREE.Vector3(at[0], at[1], at[2]);
+  const mid   = new THREE.Vector3(at[0] - len * 0.45, at[1] - drop * 0.5, at[2] + len * 0.1);
+  const end   = new THREE.Vector3(at[0] - len * 0.85, at[1] - drop, at[2] + len * 0.2);
+  const curve = new THREE.CatmullRomCurve3([start, mid, end], false, 'catmullrom', 0.5);
+  const geo = new THREE.TubeGeometry(curve, 14, r, 6, false);
+  // Taper the end
+  const RAD = 6 + 1;
+  const segs = 14;
+  const p = geo.attributes.position;
+  const center = new THREE.Vector3();
+  for (let ring = 0; ring <= segs; ring++) {
+    const t = ring / segs;
+    const rScale = THREE.MathUtils.lerp(1, 0.25, t);
+    curve.getPointAt(t, center);
+    for (let k = 0; k < RAD; k++) {
+      const i = ring * RAD + k;
+      const dx = p.getX(i) - center.x, dy = p.getY(i) - center.y, dz = p.getZ(i) - center.z;
+      p.setXYZ(i, center.x + dx * rScale, center.y + dy * rScale, center.z + dz * rScale);
+    }
+  }
+  geo.computeVertexNormals();
+  return new THREE.Mesh(geo, mat);
+}
+
+/** Small dorsal spike — rounded cone along the spine between crests. */
+function makeSpinalSpike(mat, atX, h, scale) {
+  const rBase = 0.10 * scale;
+  const g = new THREE.ConeGeometry(rBase, h, 10, 1, false);
+  // Slight forward lean for organic feel
+  g.translate(0, h * 0.5, 0);
+  g.rotateZ(0.25);
+  const mesh = new THREE.Mesh(g, mat);
+  mesh.position.set(atX, 0.88 * scale, 0);
   return mesh;
 }
 
