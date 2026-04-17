@@ -109,14 +109,18 @@ export class Leviathan extends Creature {
       bodyGeo.computeVertexNormals();
     }
 
+    const { map: bodyMap, roughnessMap: bodyRoughMap } = makeLeviathanBodyTextures();
     const bodyMat = injectLeviathanBend(
-      new THREE.MeshStandardMaterial({
-        color:              0xffffff,
-        map:                makeLeviathanBodyTexture(),
-        roughness:          0.30,
-        metalness:          0.20,
-        emissive:           new THREE.Color(0x00c8a0),
-        emissiveIntensity:  0.55,
+      new THREE.MeshPhysicalMaterial({
+        color:               0xffffff,
+        map:                 bodyMap,
+        roughnessMap:        bodyRoughMap,
+        roughness:           0.42,
+        metalness:           0.12,
+        clearcoat:           0.52,
+        clearcoatRoughness:  0.20,
+        emissive:            new THREE.Color(0x002820),
+        emissiveIntensity:   0.30,
       }),
       uniforms,
     );
@@ -180,9 +184,11 @@ export class Leviathan extends Creature {
     }
 
     // ── Head horns / crests (curved tubes, not straight cones) ────────────
-    const hornMat = new THREE.MeshStandardMaterial({
-      color: 0x1a5a68, roughness: 0.5, metalness: 0.15,
-      emissive: new THREE.Color(0x00a888), emissiveIntensity: 0.6,
+    const hornMat = new THREE.MeshPhysicalMaterial({
+      color: 0x152a38,
+      roughness: 0.58, metalness: 0.10,
+      clearcoat: 0.32, clearcoatRoughness: 0.42,
+      emissive: new THREE.Color(0x003830), emissiveIntensity: 0.38,
     });
     // Two swept-back side horns, curving outward-upward-backward
     for (const side of [-1, 1]) {
@@ -206,9 +212,12 @@ export class Leviathan extends Creature {
     group.add(crest);
 
     // ── Barbels / whiskers (4 trailing from lower jaw) ─────────────────────
-    const barbelMat = new THREE.MeshStandardMaterial({
-      color: 0x0e4858, roughness: 0.6, metalness: 0.1,
-      emissive: new THREE.Color(0x00a090), emissiveIntensity: 0.45,
+    const barbelMat = new THREE.MeshPhysicalMaterial({
+      color: 0x0c3848,
+      roughness: 0.50, metalness: 0.08,
+      clearcoat: 0.28, clearcoatRoughness: 0.50,
+      emissive: new THREE.Color(0x006858), emissiveIntensity: 0.42,
+      transparent: true, opacity: 0.92,
     });
     const barbelDefs = [
       { at: [+L * 0.455,  0.02 * scale,  0.18 * scale], len: 1.15 * scale, drop: 0.85 * scale, r: 0.028 * scale },
@@ -221,9 +230,11 @@ export class Leviathan extends Creature {
     }
 
     // ── Brow ridges above eyes (raised bony arches) ────────────────────────
-    const browMat = new THREE.MeshStandardMaterial({
-      color: 0x103848, roughness: 0.65, metalness: 0.1,
-      emissive: new THREE.Color(0x004838), emissiveIntensity: 0.4,
+    const browMat = new THREE.MeshPhysicalMaterial({
+      color: 0x0e2e3a,
+      roughness: 0.62, metalness: 0.08,
+      clearcoat: 0.22, clearcoatRoughness: 0.55,
+      emissive: new THREE.Color(0x002e28), emissiveIntensity: 0.28,
     });
     for (const side of [-1, 1]) {
       const bg = new THREE.TorusGeometry(0.18 * scale, 0.045 * scale, 8, 14, Math.PI * 0.85);
@@ -244,11 +255,14 @@ export class Leviathan extends Creature {
     }
 
     // ── Eyes (bright glowing amber) ───────────────────────────────────────
-    const eyeMat = new THREE.MeshStandardMaterial({
-      color: 0xe09020, roughness: 0.1, metalness: 0,
-      emissive: new THREE.Color(0xffb030), emissiveIntensity: 3.5,
+    // Wet eye: high clearcoat simulates the corneal sheen
+    const eyeMat = new THREE.MeshPhysicalMaterial({
+      color: 0xc87810,
+      roughness: 0.04, metalness: 0.0,
+      clearcoat: 0.90, clearcoatRoughness: 0.04,
+      emissive: new THREE.Color(0xff9820), emissiveIntensity: 2.8,
     });
-    const pupilMat = new THREE.MeshBasicMaterial({ color: 0x020305 });
+    const pupilMat = new THREE.MeshBasicMaterial({ color: 0x010204 });
     for (const side of [-1, 1]) {
       const eye = new THREE.Mesh(new THREE.SphereGeometry(0.12 * scale, 10, 8), eyeMat);
       eye.position.set(+L * 0.365, 0.24 * scale, 0.57 * scale * side);
@@ -504,107 +518,161 @@ function makeSpinalSpike(mat, atX, h, scale) {
 }
 
 function makeFinMat(color, emissiveColor, opacity = 0.88) {
-  return new THREE.MeshStandardMaterial({
+  return new THREE.MeshPhysicalMaterial({
     color,
-    roughness: 0.40,
-    metalness: 0.12,
-    side: THREE.DoubleSide,
-    emissive: emissiveColor,
-    emissiveIntensity: 0.75,
-    transparent: opacity < 1,
+    roughness:           0.38,
+    metalness:           0.08,
+    clearcoat:           0.45,
+    clearcoatRoughness:  0.28,
+    side:                THREE.DoubleSide,
+    emissive:            emissiveColor,
+    emissiveIntensity:   0.48,
+    transparent:         true,
     opacity,
   });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Procedural body texture: bright teal with bioluminescent spots
+// Procedural body textures: albedo map + roughness map
+// roughnessMap: scale-centres dark (shiny) / scale-borders light (matte)
+// → clearcoat specular highlight breaks across every individual scale
 // ─────────────────────────────────────────────────────────────────────────────
 
-function makeLeviathanBodyTexture() {
+function makeLeviathanBodyTextures() {
   const W = 1024, H = 256;
-  const c = document.createElement('canvas');
-  c.width = W; c.height = H;
-  const g = c.getContext('2d');
 
-  // Base: vivid teal-cyan body, slightly darker at extremes
-  const grad = g.createLinearGradient(0, 0, W, 0);
-  grad.addColorStop(0.00, '#0a3040');  // tail
-  grad.addColorStop(0.12, '#0e4858');
-  grad.addColorStop(0.30, '#1a6878');  // body dark
-  grad.addColorStop(0.52, '#207888');  // body mid
-  grad.addColorStop(0.70, '#1e6878');
-  grad.addColorStop(0.88, '#165868');
-  grad.addColorStop(1.00, '#0c3848');  // head
-  g.fillStyle = grad;
-  g.fillRect(0, 0, W, H);
+  // ── Albedo (colour) map ─────────────────────────────────────────────────
+  const ac = document.createElement('canvas');
+  ac.width = W; ac.height = H;
+  const ag = ac.getContext('2d');
 
-  // Belly lighter stripe
-  const belly = g.createLinearGradient(0, 0, 0, H);
-  belly.addColorStop(0.00, 'rgba(0,0,0,0.30)');
-  belly.addColorStop(0.42, 'rgba(0,0,0,0.00)');
-  belly.addColorStop(1.00, 'rgba(100,220,200,0.25)');
-  g.fillStyle = belly;
-  g.fillRect(0, 0, W, H);
+  // Dorsal–ventral gradient: dark indigo back → vivid teal flank → soft aqua belly
+  const baseGrad = ag.createLinearGradient(0, 0, 0, H);
+  baseGrad.addColorStop(0.00, '#0a2535');  // dorsal dark
+  baseGrad.addColorStop(0.30, '#14546a');
+  baseGrad.addColorStop(0.55, '#1e7080');  // main flank teal
+  baseGrad.addColorStop(0.78, '#258a8a');  // lower flank
+  baseGrad.addColorStop(1.00, '#2a9888');  // belly aqua
+  ag.fillStyle = baseGrad;
+  ag.fillRect(0, 0, W, H);
 
-  // Dragon scales
-  const sz = 26;
-  for (let row = 0; row * sz * 0.76 < H + sz; row++) {
-    for (let col = 0; col * sz * 0.88 < W + sz; col++) {
+  // Head-to-tail length gradient: slightly darker at extremes
+  const lenGrad = ag.createLinearGradient(0, 0, W, 0);
+  lenGrad.addColorStop(0.00, 'rgba(0,0,0,0.35)');   // tail
+  lenGrad.addColorStop(0.15, 'rgba(0,0,0,0.12)');
+  lenGrad.addColorStop(0.50, 'rgba(0,0,0,0.00)');   // body
+  lenGrad.addColorStop(0.85, 'rgba(0,0,0,0.10)');
+  lenGrad.addColorStop(1.00, 'rgba(0,0,0,0.30)');   // head
+  ag.fillStyle = lenGrad;
+  ag.fillRect(0, 0, W, H);
+
+  // Dragon scale grid (hexagonal offset)
+  const sz = 24;
+  const scaleData = [];   // remember positions for roughnessMap
+  for (let row = 0; row * sz * 0.76 <= H + sz; row++) {
+    for (let col = 0; col * sz * 0.88 <= W + sz; col++) {
       const ox = (row % 2) * (sz * 0.44);
       const cx = col * sz * 0.88 + ox;
       const cy = row * sz * 0.76;
-      const u  = cx / W;
-      const density = 1.0 - Math.pow(Math.abs(u - 0.5) * 2.0, 1.8);
-      if (Math.random() > 0.45 + density * 0.40) continue;
-      g.globalAlpha = 0.28 + density * 0.20;
-      g.strokeStyle = '#052830';
-      g.lineWidth = 1.2;
-      g.beginPath(); g.arc(cx, cy, sz * 0.46, 0, Math.PI * 2); g.stroke();
-      g.globalAlpha = 0.10 + density * 0.12;
-      const rg = g.createRadialGradient(cx - sz*0.12, cy - sz*0.12, 0, cx, cy, sz*0.46);
-      rg.addColorStop(0, 'rgba(0, 255, 230, 0.8)');
-      rg.addColorStop(1, 'rgba(0, 255, 230, 0)');
-      g.fillStyle = rg;
-      g.beginPath(); g.arc(cx, cy, sz * 0.46, 0, Math.PI * 2); g.fill();
+      scaleData.push({ cx, cy });
+      // Scale edge (dark border)
+      ag.globalAlpha = 0.32;
+      ag.strokeStyle = '#041c28';
+      ag.lineWidth = 1.4;
+      ag.beginPath(); ag.arc(cx, cy, sz * 0.46, 0, Math.PI * 2); ag.stroke();
+      // Scale highlight (top-left iridescent catch)
+      ag.globalAlpha = 0.14;
+      const sh = ag.createRadialGradient(cx - sz*0.14, cy - sz*0.14, 0, cx, cy, sz*0.46);
+      sh.addColorStop(0,   'rgba(60, 255, 230, 0.9)');
+      sh.addColorStop(0.5, 'rgba(0,  200, 180, 0.3)');
+      sh.addColorStop(1,   'rgba(0,  200, 180, 0)');
+      ag.fillStyle = sh;
+      ag.beginPath(); ag.arc(cx, cy, sz * 0.46, 0, Math.PI * 2); ag.fill();
     }
   }
-  g.globalAlpha = 1;
+  ag.globalAlpha = 1;
 
-  // Bioluminescent lateral-line dots (bright, clearly visible)
-  g.globalCompositeOperation = 'screen';
-  for (const dotY of [H * 0.40, H * 0.62]) {
-    const step = W * 0.038 + (dotY > H * 0.5 ? W * 0.015 : 0);
-    for (let x = W * 0.05; x < W * 0.93; x += step + Math.random() * W * 0.01) {
-      const r = 4 + Math.random() * 5;
-      g.globalAlpha = 0.65 + Math.random() * 0.30;
-      const rg = g.createRadialGradient(x, dotY, 0, x, dotY, r * 2.8);
-      rg.addColorStop(0, 'rgba(0, 255, 220, 1)');
-      rg.addColorStop(0.4, 'rgba(0, 200, 180, 0.6)');
-      rg.addColorStop(1, 'rgba(0, 200, 180, 0)');
-      g.fillStyle = rg;
-      g.beginPath(); g.arc(x, dotY, r * 2.8, 0, Math.PI * 2); g.fill();
+  // Lateral-line bioluminescent dots
+  ag.globalCompositeOperation = 'screen';
+  for (const [dotY, step, col] of [
+    [H * 0.38, W * 0.040, 'rgba(0, 255, 215, 1)'],
+    [H * 0.62, W * 0.055, 'rgba(30, 220, 255, 1)'],
+  ]) {
+    for (let x = W * 0.05; x < W * 0.93; x += step + Math.random() * W * 0.008) {
+      const r = 3.5 + Math.random() * 4.5;
+      ag.globalAlpha = 0.60 + Math.random() * 0.32;
+      const rg = ag.createRadialGradient(x, dotY, 0, x, dotY, r * 3);
+      rg.addColorStop(0,   col);
+      rg.addColorStop(0.4, col.replace('1)', '0.5)'));
+      rg.addColorStop(1,   col.replace('1)', '0)'));
+      ag.fillStyle = rg;
+      ag.beginPath(); ag.arc(x, dotY, r * 3, 0, Math.PI * 2); ag.fill();
     }
   }
-  g.globalCompositeOperation = 'source-over';
-  g.globalAlpha = 1;
+  ag.globalCompositeOperation = 'source-over';
+  ag.globalAlpha = 1;
 
-  // Noise grain
-  const img = g.getImageData(0, 0, W, H);
-  const d = img.data;
-  for (let i = 0; i < d.length; i += 4) {
-    const n = (Math.random() - 0.5) * 12;
-    d[i]   = clamp255(d[i]   + n);
-    d[i+1] = clamp255(d[i+1] + n * 0.9);
-    d[i+2] = clamp255(d[i+2] + n * 0.7);
+  // Subtle noise grain
+  {
+    const img = ag.getImageData(0, 0, W, H);
+    const d = img.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const n = (Math.random() - 0.5) * 10;
+      d[i]   = clamp255(d[i]   + n);
+      d[i+1] = clamp255(d[i+1] + n * 0.9);
+      d[i+2] = clamp255(d[i+2] + n * 0.7);
+    }
+    ag.putImageData(img, 0, 0);
   }
-  g.putImageData(img, 0, 0);
 
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = 4;
-  tex.wrapS = THREE.RepeatWrapping;
-  tex.wrapT = THREE.ClampToEdgeWrapping;
-  return tex;
+  const map = new THREE.CanvasTexture(ac);
+  map.colorSpace = THREE.SRGBColorSpace;
+  map.anisotropy = 4;
+  map.wrapS = THREE.RepeatWrapping;
+  map.wrapT = THREE.ClampToEdgeWrapping;
+
+  // ── Roughness map (512×128, green channel) ──────────────────────────────
+  // Dark (low roughness) = smooth/shiny scale-centres
+  // Light (high roughness) = rough scale-borders
+  // Three.js reads roughness from the green channel of roughnessMap.
+  const RW = 512, RH = 128;
+  const rc = document.createElement('canvas');
+  rc.width = RW; rc.height = RH;
+  const rg = rc.getContext('2d');
+
+  // Base: medium roughness (0.5 → grey 128)
+  rg.fillStyle = '#808080';
+  rg.fillRect(0, 0, RW, RH);
+
+  // Belly smoother (lower roughness = darker)
+  const bellyR = rg.createLinearGradient(0, 0, 0, RH);
+  bellyR.addColorStop(0.00, 'rgba(80,80,80,0.0)');   // dorsal: no change
+  bellyR.addColorStop(0.60, 'rgba(0,0,0,0.0)');
+  bellyR.addColorStop(1.00, 'rgba(0,0,0,0.22)');     // belly: darker = smoother
+  rg.fillStyle = bellyR;
+  rg.fillRect(0, 0, RW, RH);
+
+  // Scale centres dark (shiny), borders already grey
+  const scaleRatio = RW / W;
+  for (const { cx, cy } of scaleData) {
+    const rx = cx * scaleRatio, ry = cy * (RH / H);
+    const rs = sz * 0.46 * scaleRatio;
+    // Centre: near-black (very smooth/shiny)
+    rg.globalAlpha = 0.55;
+    const cg = rg.createRadialGradient(rx, ry, 0, rx, ry, rs);
+    cg.addColorStop(0,    'rgba(0, 0, 0, 1)');    // centre: roughness ~0.15
+    cg.addColorStop(0.65, 'rgba(0, 0, 0, 0.4)');
+    cg.addColorStop(1,    'rgba(255,255,255,0)');  // border: back to base 0.5
+    rg.fillStyle = cg;
+    rg.beginPath(); rg.arc(rx, ry, rs, 0, Math.PI * 2); rg.fill();
+  }
+  rg.globalAlpha = 1;
+
+  const roughnessMap = new THREE.CanvasTexture(rc);
+  roughnessMap.wrapS = THREE.RepeatWrapping;
+  roughnessMap.wrapT = THREE.ClampToEdgeWrapping;
+
+  return { map, roughnessMap };
 }
 
 function clamp255(v) { return Math.max(0, Math.min(255, v)); }
