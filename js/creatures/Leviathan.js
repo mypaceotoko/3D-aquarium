@@ -332,9 +332,28 @@ export class Leviathan extends Creature {
     this._pitchTarget = 0;
 
     // Burst state
-    this._burstCooldown = THREE.MathUtils.randFloat(12, 22);
+    this._burstCooldown = THREE.MathUtils.randFloat(10, 20);
     this._burstTimer    = 0;
     this._isBursting    = false;
+
+    // ── Behavior state machine ─────────────────────────────────────────────
+    // Governs which movement mode the Leviathan is in.
+    // Burst is a separate overlay that can trigger during any behavior.
+    //
+    //  CRUISE  — default slow patrol, varied depth
+    //  PATROL  — deliberate diagonal sweeps corner→corner
+    //  DIVE    — plunge toward the seafloor
+    //  ASCENT  — rise to the surface
+    //  CIRCLE  — wide orbital arc around the tank
+    //  HOVER   — almost still, imposing presence
+    //
+    this._behavior      = 'CRUISE';
+    this._behaviorTimer = THREE.MathUtils.randFloat(6, 12);
+    this._behaviorSpeed = 1.85;   // non-burst speed for the current behavior
+    this._patrolCorner  = 0;      // cycles 0-3 through the four tank corners
+    this._circleAngle   = Math.random() * Math.PI * 2;
+    this._circleDir     = 1;
+    this._circleR       = 15;
   }
 
   onUpdate(dt, time, state) {
@@ -348,23 +367,28 @@ export class Leviathan extends Creature {
     this._pitchTarget = THREE.MathUtils.lerp(this._pitchTarget, pitchTarget, Math.min(1, dt * 1.2));
     u.uPitch.value = this._pitchTarget;
 
-    // ── Burst ─────────────────────────────────────────────────────────────
+    // ── Behavior state machine ─────────────────────────────────────────────
+    this._updateBehavior(dt);
+
+    // ── Burst — overlaid on top of current behavior ────────────────────────
     if (this._isBursting) {
       this._burstTimer -= dt;
       if (this._burstTimer <= 0) {
         this._isBursting    = false;
-        this._burstCooldown = THREE.MathUtils.randFloat(18, 35);
-        this.cfg.speed      = 1.85;
-        this.cfg.maxAccel   = 0.50;
+        this._burstCooldown = THREE.MathUtils.randFloat(16, 30);
+        // Restore behavior's intended speed (not hardcoded 1.85)
+        this.cfg.speed    = this._behaviorSpeed;
+        this.cfg.maxAccel = this._behavior === 'HOVER' ? 0.30 : 0.52;
       }
     } else {
       this._burstCooldown -= dt;
       if (this._burstCooldown <= 0) {
         this._isBursting  = true;
-        this._burstTimer  = THREE.MathUtils.randFloat(2.5, 4.5);
-        this.cfg.speed    = 4.2;
-        this.cfg.maxAccel = 2.5;
-        this.pickTarget();
+        this._burstTimer  = THREE.MathUtils.randFloat(2.8, 5.0);
+        // Burst speed scales relative to current behavior (faster in PATROL than HOVER)
+        this.cfg.speed    = Math.min(5.8, this._behaviorSpeed * 2.6);
+        this.cfg.maxAccel = 3.2;
+        this.pickTarget();  // charge toward a fresh far target
       }
     }
 
@@ -373,12 +397,22 @@ export class Leviathan extends Creature {
     u.uFreq.value = (0.28 + 0.55 * this.speedNorm) * bMul;
     u.uAmp.value  =  0.70 + 0.40 * this.speedNorm + (this._isBursting ? 0.3 : 0);
 
-    // ── Body banking ───────────────────────────────────────────────────────
+    // ── Body banking — more dramatic during circles and bursts ─────────────
+    const bankTarget = (() => {
+      const base = this.turnSignal;
+      if (this._isBursting)             return -base * 0.32;
+      if (this._behavior === 'CIRCLE')  return -base * 0.38;
+      if (this._behavior === 'PATROL')  return -base * 0.28;
+      if (this._behavior === 'HOVER')   return -base * 0.12;
+      return -base * 0.22;
+    })();
     this.mesh.rotation.x = THREE.MathUtils.lerp(
-      this.mesh.rotation.x, -this.turnSignal * 0.22, Math.min(1, dt * 1.8),
+      this.mesh.rotation.x, bankTarget, Math.min(1, dt * 1.8),
     );
+    // Pitch — more pronounced on dives and ascents
+    const pitchScale = (this._behavior === 'DIVE' || this._behavior === 'ASCENT') ? 0.50 : 0.30;
     this.mesh.rotation.z = THREE.MathUtils.lerp(
-      this.mesh.rotation.z, this._pitchTarget * 0.30, Math.min(1, dt * 1.5),
+      this.mesh.rotation.z, this._pitchTarget * pitchScale, Math.min(1, dt * 1.5),
     );
 
     // ── Pectoral sculling ──────────────────────────────────────────────────
@@ -410,6 +444,173 @@ export class Leviathan extends Creature {
       this._glowChest.color.setHex(0x40f8ff);
     } else {
       this._glowChest.color.setHex(0x00d8b8);
+    }
+  }
+
+  // ── Behavior state machine ───────────────────────────────────────────────
+
+  /**
+   * Advance the behavior timer; choose a new behavior when it expires.
+   * Called every frame from onUpdate. Burst is handled separately and does
+   * NOT interrupt the behavior — only temporarily overrides speed.
+   */
+  _updateBehavior(dt) {
+    if (this._isBursting) return;   // don't transition while charging
+
+    this._behaviorTimer -= dt;
+    if (this._behaviorTimer > 0)   return;
+
+    // ── Weighted behavior picker ──────────────────────────────────────────
+    const roll = Math.random();
+
+    if (roll < 0.28) {
+      // PATROL: 4-corner diagonal sweeps fill the full tank
+      this._behavior      = 'PATROL';
+      this._behaviorTimer = THREE.MathUtils.randFloat(24, 40);
+      this._behaviorSpeed = 2.2;
+      this.cfg.maxAccel   = 0.55;
+      this._patrolCorner  = (this._patrolCorner + Math.floor(Math.random() * 2) + 1) % 4;
+    } else if (roll < 0.42) {
+      // DIVE: dramatic plunge to the seafloor
+      this._behavior      = 'DIVE';
+      this._behaviorTimer = THREE.MathUtils.randFloat(10, 18);
+      this._behaviorSpeed = 2.6;
+      this.cfg.maxAccel   = 0.70;
+    } else if (roll < 0.56) {
+      // ASCENT: rise toward the surface
+      this._behavior      = 'ASCENT';
+      this._behaviorTimer = THREE.MathUtils.randFloat(10, 16);
+      this._behaviorSpeed = 2.2;
+      this.cfg.maxAccel   = 0.58;
+    } else if (roll < 0.70) {
+      // CIRCLE: wide orbital arc, optional direction reversal
+      this._behavior      = 'CIRCLE';
+      this._behaviorTimer = THREE.MathUtils.randFloat(20, 32);
+      this._behaviorSpeed = 2.0;
+      this.cfg.maxAccel   = 0.50;
+      this._circleAngle   = Math.atan2(this.pos.z, this.pos.x);
+      this._circleDir     = Math.random() < 0.5 ? 1 : -1;
+      this._circleR       = THREE.MathUtils.randFloat(12, 18);
+    } else if (roll < 0.82) {
+      // HOVER: slow drift — "the leviathan is watching"
+      this._behavior      = 'HOVER';
+      this._behaviorTimer = THREE.MathUtils.randFloat(5, 9);
+      this._behaviorSpeed = 0.55;
+      this.cfg.maxAccel   = 0.25;
+    } else {
+      // CRUISE: wide random wander (default)
+      this._behavior      = 'CRUISE';
+      this._behaviorTimer = THREE.MathUtils.randFloat(10, 18);
+      this._behaviorSpeed = 1.85;
+      this.cfg.maxAccel   = 0.50;
+    }
+
+    this.cfg.speed = this._behaviorSpeed;
+    this.pickTarget();  // immediately head somewhere fitting the new behavior
+  }
+
+  /**
+   * Override base-class target selection with behavior-aware navigation.
+   * Sets this.target and this.wanderT.
+   */
+  pickTarget(state) {
+    // Guard: called from super() before behavior state is initialised
+    if (!this._behavior) {
+      const m = 9;
+      this.target.set(
+        THREE.MathUtils.randFloat(TANK.minX + m, TANK.maxX - m),
+        THREE.MathUtils.randFloat(TANK.floorY + 3.5, TANK.maxY - 3.5),
+        THREE.MathUtils.randFloat(TANK.minZ + m, TANK.maxZ - m),
+      );
+      this.wanderT = 12;
+      return;
+    }
+
+    const m   = 9;                               // safety margin from walls
+    const xR  = TANK.maxX - m;
+    const zR  = TANK.maxZ - m;
+    const yMid = (TANK.floorY + TANK.maxY) * 0.5;
+
+    switch (this._behavior) {
+
+      case 'PATROL': {
+        // Sweep to the next of four tank corners in sequence
+        const corners = [
+          [ xR,         TANK.maxZ - m],
+          [-xR,         TANK.minZ + m],
+          [ xR,         TANK.minZ + m],
+          [-xR,         TANK.maxZ - m],
+        ];
+        const [tx, tz] = corners[this._patrolCorner % 4];
+        this._patrolCorner = (this._patrolCorner + 1) % 4;
+        this.target.set(
+          tx,
+          THREE.MathUtils.randFloat(TANK.floorY + 4.5, TANK.maxY - 4.5),
+          tz,
+        );
+        this.wanderT = THREE.MathUtils.randFloat(7, 11);
+        break;
+      }
+
+      case 'DIVE': {
+        // Plunge to deep floor area
+        this.target.set(
+          THREE.MathUtils.randFloat(TANK.minX + m, TANK.maxX - m),
+          THREE.MathUtils.randFloat(TANK.floorY + 3.5, TANK.floorY + 5.5),
+          THREE.MathUtils.randFloat(TANK.minZ + m, TANK.maxZ - m),
+        );
+        this.wanderT = THREE.MathUtils.randFloat(10, 16);
+        break;
+      }
+
+      case 'ASCENT': {
+        // Rise near the surface
+        this.target.set(
+          THREE.MathUtils.randFloat(TANK.minX + m, TANK.maxX - m),
+          THREE.MathUtils.randFloat(TANK.maxY - 5.0, TANK.maxY - 3.5),
+          THREE.MathUtils.randFloat(TANK.minZ + m, TANK.maxZ - m),
+        );
+        this.wanderT = THREE.MathUtils.randFloat(8, 14);
+        break;
+      }
+
+      case 'CIRCLE': {
+        // Advance along the orbit; vertical position oscillates
+        this._circleAngle += this._circleDir * 1.40;   // ~80° per waypoint
+        const ca = this._circleAngle;
+        const cy = yMid + Math.sin(ca * 0.55) * 4.5;   // gentle altitude wave
+        this.target.set(
+          THREE.MathUtils.clamp(Math.cos(ca) * this._circleR, TANK.minX + m, TANK.maxX - m),
+          THREE.MathUtils.clamp(cy, TANK.floorY + 4, TANK.maxY - 4),
+          THREE.MathUtils.clamp(Math.sin(ca) * this._circleR, TANK.minZ + m, TANK.maxZ - m),
+        );
+        this.wanderT = THREE.MathUtils.randFloat(4, 7);
+        break;
+      }
+
+      case 'HOVER': {
+        // Drift a short distance from current position
+        this.target.set(
+          THREE.MathUtils.clamp(this.pos.x + THREE.MathUtils.randFloatSpread(5),
+            TANK.minX + m, TANK.maxX - m),
+          THREE.MathUtils.clamp(this.pos.y + THREE.MathUtils.randFloatSpread(2.5),
+            TANK.floorY + 3.5, TANK.maxY - 3.5),
+          THREE.MathUtils.clamp(this.pos.z + THREE.MathUtils.randFloatSpread(5),
+            TANK.minZ + m, TANK.maxZ - m),
+        );
+        this.wanderT = THREE.MathUtils.randFloat(2.5, 4.5);
+        break;
+      }
+
+      default: {  // CRUISE + anything unrecognised
+        // Wide sweep using the full tank depth range
+        this.target.set(
+          THREE.MathUtils.randFloat(TANK.minX + m, TANK.maxX - m),
+          THREE.MathUtils.randFloat(this.cfg.depthMin, this.cfg.depthMax),
+          THREE.MathUtils.randFloat(TANK.minZ + m, TANK.maxZ - m),
+        );
+        this.wanderT = THREE.MathUtils.randFloat(10, 16);
+      }
     }
   }
 }
