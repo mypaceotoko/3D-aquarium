@@ -185,7 +185,35 @@ const hint      = document.getElementById('hint');
 const btnAmbient = document.getElementById('btn-ambient');
 const btnSound   = document.getElementById('btn-sound');
 const btnFeed    = document.getElementById('btn-feed');
+const btnUiToggle = document.getElementById('btn-ui-toggle');
 const speciesBtns = document.querySelectorAll('.species-btn');
+
+// --- Collapsible UI panel ---------------------------------------------
+const UI_COLLAPSED_KEY = 'aquarium.uiCollapsed';
+
+function setUiCollapsed(collapsed) {
+  ui.classList.toggle('collapsed', collapsed);
+  btnUiToggle.setAttribute('aria-expanded', String(!collapsed));
+  btnUiToggle.textContent = collapsed ? '▴' : '▾';
+  btnUiToggle.title = collapsed ? 'メニューを開く' : 'メニューを閉じる';
+  try { localStorage.setItem(UI_COLLAPSED_KEY, collapsed ? '1' : '0'); } catch (_) {}
+}
+
+btnUiToggle.addEventListener('click', () => {
+  setUiCollapsed(!ui.classList.contains('collapsed'));
+});
+
+(function initUiCollapsed() {
+  let stored = null;
+  try { stored = localStorage.getItem(UI_COLLAPSED_KEY); } catch (_) {}
+  if (stored === '1' || stored === '0') {
+    setUiCollapsed(stored === '1');
+    return;
+  }
+  // First visit: auto-collapse on short viewports (phone landscape)
+  const shortLandscape = window.innerHeight < 480 && window.innerWidth > window.innerHeight;
+  setUiCollapsed(isMobile && shortLandscape);
+})();
 
 btnAmbient.addEventListener('click', () => {
   state.ambient = !state.ambient;

@@ -21,19 +21,22 @@
   <div id="hint" class="hint">tap to enable sound</div>
 
   <div id="ui" class="ui">
-    <div class="group species" role="group" aria-label="creatures">
-      <button class="btn species-btn" data-species="jellyfish" title="Jellyfish">クラゲ</button>
-      <button class="btn species-btn" data-species="coelacanth" title="Coelacanth">シーラカンス</button>
-      <button class="btn species-btn" data-species="trilobite" title="Trilobite">三葉虫</button>
-      <button class="btn species-btn" data-species="isopod" title="Giant isopod">ダイオウグソクムシ</button>
-      <button class="btn species-btn" data-species="gar" title="Alligator gar">アリゲーターガー</button>
-      <button class="btn species-btn" data-species="pirarucu" title="Pirarucu">ピラルク</button>
+    <div class="ui-body">
+      <div class="group species" role="group" aria-label="creatures">
+        <button class="btn species-btn" data-species="jellyfish" title="Jellyfish">クラゲ</button>
+        <button class="btn species-btn" data-species="coelacanth" title="Coelacanth">シーラカンス</button>
+        <button class="btn species-btn" data-species="trilobite" title="Trilobite">三葉虫</button>
+        <button class="btn species-btn" data-species="isopod" title="Giant isopod">ダイオウグソクムシ</button>
+        <button class="btn species-btn" data-species="gar" title="Alligator gar">アリゲーターガー</button>
+        <button class="btn species-btn" data-species="pirarucu" title="Pirarucu">ピラルク</button>
+      </div>
+      <div class="group toggles">
+        <button class="btn" id="btn-ambient" aria-pressed="true" title="Ambient mode">鑑賞 ON</button>
+        <button class="btn" id="btn-sound" aria-pressed="false" title="Sound">音 OFF</button>
+        <button class="btn accent" id="btn-feed" title="Drop food">餌</button>
+      </div>
     </div>
-    <div class="group toggles">
-      <button class="btn" id="btn-ambient" aria-pressed="true" title="Ambient mode">鑑賞 ON</button>
-      <button class="btn" id="btn-sound" aria-pressed="false" title="Sound">音 OFF</button>
-      <button class="btn accent" id="btn-feed" title="Drop food">餌</button>
-    </div>
+    <button class="btn btn-toggle" id="btn-ui-toggle" aria-expanded="true" aria-controls="ui" title="メニューを閉じる">▾</button>
   </div>
 
   <script type="module" src="./js/main.js"></script>

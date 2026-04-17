@@ -59,7 +59,8 @@ html, body {
   bottom: max(18px, env(safe-area-inset-bottom));
   transform: translateX(-50%);
   display: flex;
-  gap: 10px;
+  align-items: center;
+  gap: 8px;
   padding: 10px;
   border-radius: 18px;
   background: var(--glass);
@@ -68,13 +69,28 @@ html, body {
   border: 1px solid var(--glass-br);
   box-shadow: 0 8px 36px rgba(0, 0, 0, 0.4);
   opacity: 1;
-  transition: opacity 0.9s ease;
+  transition: opacity 0.9s ease, padding 0.25s ease, border-radius 0.25s ease;
   max-width: calc(100vw - 20px);
-  flex-wrap: wrap;
   justify-content: center;
 }
 .ui.dim { opacity: 0.18; }
 .ui:hover, .ui:focus-within { opacity: 1; }
+
+.ui-body {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  transition: max-width 0.25s ease, opacity 0.2s ease;
+}
+.ui.collapsed .ui-body {
+  display: none;
+}
+.ui.collapsed {
+  padding: 6px;
+  border-radius: 999px;
+}
 
 .group {
   display: flex;
@@ -86,6 +102,15 @@ html, body {
   margin-left: 2px;
   border-left: 1px solid rgba(140, 220, 255, 0.14);
 }
+
+.btn-toggle {
+  min-width: 32px;
+  padding: 6px 10px;
+  font-size: 13px;
+  line-height: 1;
+  opacity: 0.85;
+}
+.btn-toggle:hover { opacity: 1; }
 
 .btn {
   appearance: none;
