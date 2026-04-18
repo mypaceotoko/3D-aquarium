@@ -78,6 +78,9 @@ export function launch() {
 
   addC(new Whale());
 
+  const nShark = isMobile ? 2 : 3;
+  for (let i = 0; i < nShark; i++) addC(new Shark());
+
   // ── UI ────────────────────────────────────────────────────────────────────
   buildUI();
 
@@ -691,5 +694,91 @@ function makeWhaleMesh() {
   g.userData.tail = tail;
 
   g.scale.setScalar(5.5);
+  return g;
+}
+
+// ─── Shark (サメ) ─────────────────────────────────────────────────────────
+
+class Shark extends OceanCreature {
+  constructor() {
+    super({
+      species: 'shark',
+      mesh: makeSharkMesh(),
+      cfg: {
+        speed: 2.4, maxAccel: 1.4, turnRate: 0.85,
+        depthMin: OTANK.floorY + 3, depthMax: OTANK.maxY - 5,
+        wanderMin: 12, wanderMax: 24, wallMargin: 10,
+        facesVelocity: true,
+      },
+    });
+    this._phase = Math.random() * Math.PI * 2;
+  }
+  onUpdate(dt, time) {
+    const t = time * 2.1 + this._phase;
+    const tail = this.mesh.userData.tail;
+    // Fish-style: tail sweeps side-to-side (y-axis)
+    if (tail) tail.rotation.y = Math.sin(t) * (0.22 + this.speedNorm * 0.14);
+    this.mesh.rotation.y = Math.sin(t + 0.5) * 0.03;
+  }
+}
+
+function makeSharkMesh() {
+  const g      = new THREE.Group();
+  const top    = new THREE.MeshStandardMaterial({ color: 0x4a5060, roughness: 0.60, metalness: 0.08 });
+  const btm    = new THREE.MeshStandardMaterial({ color: 0xb8bec8, roughness: 0.58, metalness: 0.06 });
+
+  // Body
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.52, 12, 9), top);
+  body.scale.set(2.8, 0.72, 0.68);
+  g.add(body);
+
+  // Lighter underside
+  const under = new THREE.Mesh(new THREE.SphereGeometry(0.46, 10, 7), btm);
+  under.scale.set(2.4, 0.30, 0.58);
+  under.position.y = -0.18;
+  g.add(under);
+
+  // Pointed snout
+  const snout = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.60, 8), top);
+  snout.rotation.z = -Math.PI / 2;
+  snout.position.x = 1.58;
+  g.add(snout);
+
+  // First dorsal fin (tall, iconic)
+  const d1 = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.62, 5), top);
+  d1.position.set(0.15, 0.50, 0);
+  g.add(d1);
+
+  // Second dorsal fin (small)
+  const d2 = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.26, 5), top);
+  d2.position.set(-0.85, 0.34, 0);
+  g.add(d2);
+
+  // Pectoral fins (wide, swept back)
+  for (const s of [-1, 1]) {
+    const pec = new THREE.Mesh(new THREE.ConeGeometry(0.10, 0.72, 5), top);
+    pec.rotation.z = s * 1.35;
+    pec.rotation.x = s * 0.20;
+    pec.position.set(0.60, -0.12, s * 0.46);
+    g.add(pec);
+  }
+
+  // Caudal fin (heterocercal — upper lobe bigger)
+  const tail = new THREE.Group();
+  tail.position.x = -1.48;
+  const upper = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.72, 5), top);
+  upper.rotation.z = Math.PI / 2;
+  upper.rotation.y = 0.32;
+  upper.position.set(-0.36, 0.18, 0);
+  tail.add(upper);
+  const lower = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.44, 5), top);
+  lower.rotation.z = Math.PI / 2;
+  lower.rotation.y = -0.22;
+  lower.position.set(-0.22, -0.12, 0);
+  tail.add(lower);
+  g.add(tail);
+  g.userData.tail = tail;
+
+  g.scale.setScalar(2.2);
   return g;
 }
