@@ -167,3 +167,117 @@ html, body {
   .btn { padding: 7px 9px; font-size: 11px; }
   .species .btn { font-size: 10px; padding: 6px 7px; }
 }
+
+/* ─── Aquarium Selector ─────────────────────────────────────────────── */
+
+.sel-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: radial-gradient(ellipse at 50% 38%, #052840 0%, #020c14 65%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.5s ease;
+}
+.sel-overlay.sel-leaving {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.sel-inner {
+  text-align: center;
+  padding: 32px 16px;
+  max-width: 680px;
+  width: 100%;
+}
+
+.sel-header { margin-bottom: 40px; }
+
+.sel-title {
+  margin: 0 0 10px;
+  font-size: clamp(28px, 6vw, 52px);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: #c8eeff;
+  text-shadow: 0 0 36px rgba(80, 200, 255, 0.4);
+}
+.sel-sub {
+  margin: 0;
+  font-size: clamp(12px, 2.2vw, 15px);
+  color: rgba(200, 235, 255, 0.48);
+  letter-spacing: 0.1em;
+}
+
+.aq-grid {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.aq-card {
+  appearance: none;
+  border: 1px solid rgba(130, 200, 255, 0.14);
+  background: rgba(8, 24, 38, 0.72);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-radius: 20px;
+  overflow: hidden;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  width: 280px;
+  padding: 0;
+  transition: transform 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
+}
+.aq-card:hover {
+  transform: translateY(-7px);
+  border-color: rgba(130, 200, 255, 0.38);
+  box-shadow: 0 18px 52px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(130, 200, 255, 0.18);
+}
+.aq-card:active { transform: translateY(-2px); }
+
+.aq-thumb {
+  width: 100%;
+  height: 156px;
+  position: relative;
+  overflow: hidden;
+}
+.aq-thumb-shine {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 28% 28%, rgba(255,255,255,0.20) 0%, transparent 62%);
+  pointer-events: none;
+}
+
+.aq-info { padding: 18px 20px 22px; }
+
+.aq-name {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #d8f0ff;
+  letter-spacing: 0.04em;
+}
+.aq-desc {
+  margin: 0 0 14px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: rgba(200, 235, 255, 0.55);
+}
+.aq-cta {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  color: rgba(140, 210, 255, 0.7);
+  transition: color 0.2s ease;
+}
+.aq-card:hover .aq-cta { color: #80ddff; }
+
+@media (max-width: 620px) {
+  .aq-card { width: min(280px, calc(100vw - 40px)); }
+  .sel-header { margin-bottom: 28px; }
+}
