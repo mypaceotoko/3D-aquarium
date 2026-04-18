@@ -190,6 +190,12 @@ obsUI.onClose(() => controls.release());
 
 const audio = initAudio({ state, getCreatures });
 
+// Ambient creature cycle — same 15 s behavior as tropical/ocean
+const DEEP_SPECIES = ['leviathan', 'jellyfish', 'coelacanth', 'trilobite', 'isopod', 'gar', 'pirarucu'];
+const pickAmbient = () => controls.selectSpecies(DEEP_SPECIES[Math.floor(Math.random() * DEEP_SPECIES.length)]);
+let ambientTimer = setInterval(pickAmbient, 15000);
+pickAmbient();
+
 // ---------------------------------------------------------------------
 // UI wiring
 // ---------------------------------------------------------------------
@@ -261,6 +267,13 @@ btnAmbient.addEventListener('click', () => {
   state.ambient = !state.ambient;
   btnAmbient.setAttribute('aria-pressed', String(state.ambient));
   btnAmbient.textContent = state.ambient ? '鑑賞 ON' : '鑑賞 OFF';
+  if (state.ambient) {
+    pickAmbient();
+    ambientTimer = setInterval(pickAmbient, 15000);
+  } else {
+    clearInterval(ambientTimer);
+    controls.release();
+  }
 });
 
 btnSound.addEventListener('click', () => {
