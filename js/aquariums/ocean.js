@@ -26,7 +26,7 @@ export function launch() {
   renderer.setSize(window.innerWidth, window.innerHeight, false);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping      = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.05;
+  renderer.toneMappingExposure = 1.15;
   if (!isMobile) {
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type    = THREE.PCFSoftShadowMap;
@@ -57,7 +57,7 @@ export function launch() {
   orbit.update();
 
   // ── Lights ───────────────────────────────────────────────────────────────
-  const { caustic } = buildLights(scene, isMobile);
+  const { caustic, caustic2 } = buildLights(scene, isMobile);
 
   // ── Environment ──────────────────────────────────────────────────────────
   buildFloor(scene, isMobile);
@@ -103,10 +103,13 @@ export function launch() {
     const dt   = Math.min(clock.getDelta(), 0.05);
     const time = clock.elapsedTime;
 
-    // Caustic shimmer
-    caustic.position.x  = Math.sin(time * 0.22) * 18;
-    caustic.position.z  = Math.cos(time * 0.17) * 14;
-    caustic.intensity   = 0.9 + Math.sin(time * 1.8) * 0.28;
+    // Caustic shimmer — two offset lights create cross-hatch ripple
+    caustic.position.x  = Math.sin(time * 0.22) * 22;
+    caustic.position.z  = Math.cos(time * 0.17) * 16;
+    caustic.intensity   = 1.1 + Math.sin(time * 1.9) * 0.38;
+    caustic2.position.x = Math.cos(time * 0.28) * 18;
+    caustic2.position.z = Math.sin(time * 0.21) * 12;
+    caustic2.intensity  = 0.45 + Math.sin(time * 2.3 + 1.2) * 0.22;
 
     animateWater(waterSurf, time);
     animateParticles(particles, dt);
@@ -139,38 +142,50 @@ function makeOceanBg() {
 // ─── Lights ───────────────────────────────────────────────────────────────
 
 function buildLights(scene, isMobile) {
-  scene.add(new THREE.AmbientLight(0x9ac8e8, 0.50));
+  // Soft hemisphere: sky blue above, deep navy below
+  scene.add(new THREE.HemisphereLight(0x7ab8d8, 0x001830, 0.55));
 
-  const sun = new THREE.DirectionalLight(0xc8e8ff, 1.80);
-  sun.position.set(15, 50, 20);
+  // Primary sun — shafts from upper-left
+  const sun = new THREE.DirectionalLight(0xd0eeff, 2.10);
+  sun.position.set(20, 55, 25);
   sun.target.position.set(0, OTANK.floorY, 0);
   scene.add(sun.target);
   if (!isMobile) {
     sun.castShadow = true;
-    sun.shadow.mapSize.set(512, 512);
-    sun.shadow.camera.left = sun.shadow.camera.bottom = -60;
-    sun.shadow.camera.right = sun.shadow.camera.top  =  60;
-    sun.shadow.camera.far   = 120;
-    sun.shadow.bias         = -0.0006;
+    sun.shadow.mapSize.set(1024, 1024);
+    sun.shadow.camera.left = sun.shadow.camera.bottom = -65;
+    sun.shadow.camera.right = sun.shadow.camera.top  =  65;
+    sun.shadow.camera.far   = 130;
+    sun.shadow.bias         = -0.0005;
   }
   scene.add(sun);
 
-  // Caustic shimmer — animated per frame
-  const caustic = new THREE.PointLight(0x2090c8, 0.9, 90, 1.4);
-  caustic.position.set(0, OTANK.floorY + 8, 0);
+  // Back-light — subtle counter-sun gives creature silhouette depth
+  const back = new THREE.DirectionalLight(0x1a4878, 0.55);
+  back.position.set(-30, 10, -40);
+  scene.add(back);
+
+  // Caustic shimmer — animated per frame; wider range = more drama
+  const caustic = new THREE.PointLight(0x20a0d8, 1.2, 110, 1.3);
+  caustic.position.set(0, OTANK.floorY + 10, 0);
   scene.add(caustic);
 
-  // Deep cold fill — makes far darkness feel oceanic
-  const deep = new THREE.PointLight(0x002244, 0.35, 120, 1.2);
-  deep.position.set(0, OTANK.floorY + 4, 0);
-  scene.add(deep);
+  // Secondary caustic offset — cross-hatch shimmer feel
+  const caustic2 = new THREE.PointLight(0x0088bb, 0.55, 80, 1.5);
+  caustic2.position.set(20, OTANK.floorY + 6, -15);
+  scene.add(caustic2);
 
-  // Side fill from the "surface" direction
-  const rim = new THREE.PointLight(0x40aaee, 0.42, 150, 1.0);
-  rim.position.set(-30, 14, -20);
+  // Deep abyss fill — cold pressure blue rising from floor
+  const abyss = new THREE.PointLight(0x001840, 0.45, 140, 1.1);
+  abyss.position.set(0, OTANK.floorY + 2, 0);
+  scene.add(abyss);
+
+  // Surface rim — simulates light bouncing off the underside of the water
+  const rim = new THREE.PointLight(0x50b8f0, 0.52, 160, 0.9);
+  rim.position.set(-25, OTANK.maxY - 2, 10);
   scene.add(rim);
 
-  return { caustic };
+  return { caustic, caustic2 };
 }
 
 // ─── Ocean floor ──────────────────────────────────────────────────────────
