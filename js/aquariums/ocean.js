@@ -224,7 +224,7 @@ function buildFloor(scene, isMobile) {
   scene.add(floor);
 
   // A few rock boulders for foreground depth
-  buildBoulders(scene);
+  buildBoulders(scene, isMobile);
 }
 
 function makeRockTexture() {
@@ -279,7 +279,7 @@ function makeRockTexture() {
   return tex;
 }
 
-function buildBoulders(scene) {
+function buildBoulders(scene, isMobile) {
   const mat = new THREE.MeshStandardMaterial({ color: 0x1a2a38, roughness: 0.92, metalness: 0 });
   const defs = [
     { p: [18, -3], r: 2.8 }, { p: [-24, 5],  r: 3.5 }, { p: [40, -8],  r: 4.2 },
