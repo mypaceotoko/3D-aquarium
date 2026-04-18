@@ -11,6 +11,7 @@ const HIT_R = {
   guppy: 1.0, shrimp: 0.9, seahorse: 1.2,
   // ocean (large creatures need generous radii)
   dolphin: 3.5, orca: 9.0, whale: 24.0, shark: 6.5, megalodon: 18.0,
+  squid: 28.0,
 };
 
 // ─── Per-species follow distance ─────────────────────────────────────────────
@@ -20,6 +21,7 @@ const FOLLOW_D = {
   clownfish: 2.5, 'neon-tetra': 2, 'sea-turtle': 5,
   guppy: 2, shrimp: 1.8, seahorse: 2.5,
   dolphin: 9, orca: 22, whale: 55, shark: 14, megalodon: 42,
+  squid: 58,
 };
 
 // ─── Main entry point ────────────────────────────────────────────────────────
