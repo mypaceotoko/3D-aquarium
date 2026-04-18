@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Creature } from '../creatures/Creature.js';
 import { initObservation } from '../interaction/observationManager.js';
+import { initAquariumAudio } from '../audio-aquarium.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Giant Ocean Aquarium — ジャイアントオーシャン水槽
@@ -87,8 +88,75 @@ export function launch() {
   // ── Observation system ───────────────────────────────────────────────────
   const obs = initObservation({ camera, orbit, canvas, getCreatures: () => creatures });
 
+  // ── Audio ─────────────────────────────────────────────────────────────────
+  const audio = initAquariumAudio({ theme: 'ocean', getCreatures: () => creatures });
+
+  // ── Food system ───────────────────────────────────────────────────────────
+  const foodList = [];
+  const O_GRAVITY = 0.35, O_DRAG = 0.55, O_EAT_R = 3.5;
+
+  function refreshFoodTarget() {
+    state.food.active = foodList.length > 0;
+    if (foodList.length > 0) state.food.position.copy(foodList[0].mesh.position);
+  }
+
+  function dropFood(point) {
+    const m = new THREE.Mesh(
+      new THREE.SphereGeometry(0.40, 8, 6),
+      new THREE.MeshStandardMaterial({ color: 0xffd080, roughness: 0.5, metalness: 0,
+        emissive: 0xff9040, emissiveIntensity: 0.7 }),
+    );
+    m.position.copy(point);
+    scene.add(m);
+    foodList.push({
+      mesh: m,
+      vel: new THREE.Vector3((Math.random()-.5)*.3, -.25, (Math.random()-.5)*.3),
+      life: 20,
+    });
+    audio.triggerFeed();
+    refreshFoodTarget();
+  }
+
+  function updateFood(dt) {
+    for (let i = foodList.length - 1; i >= 0; i--) {
+      const f = foodList[i];
+      f.life -= dt;
+      f.vel.y -= O_GRAVITY * dt;
+      f.vel.multiplyScalar(Math.pow(O_DRAG, dt));
+      f.mesh.position.addScaledVector(f.vel, dt);
+      f.mesh.rotation.y += dt * 0.9;
+      f.mesh.rotation.x += dt * 0.6;
+      let eaten = false;
+      for (const c of creatures) {
+        if (!c.cfg.reactsToFood) continue;
+        if (c.pos.distanceTo(f.mesh.position) < O_EAT_R) {
+          audio.triggerChomp(); eaten = true; break;
+        }
+      }
+      if (!eaten && (f.mesh.position.y < OTANK.floorY + 0.5 || f.life <= 0)) eaten = true;
+      if (eaten) {
+        scene.remove(f.mesh);
+        f.mesh.geometry.dispose(); f.mesh.material.dispose();
+        foodList.splice(i, 1);
+      }
+    }
+    refreshFoodTarget();
+  }
+
   // ── UI ────────────────────────────────────────────────────────────────────
-  buildUI(obs, renderer);
+  const uiPanel = buildUI(obs, renderer, audio, () => {
+    dropFood(new THREE.Vector3(
+      THREE.MathUtils.randFloatSpread(OTANK.maxX * 0.6),
+      OTANK.maxY - 2,
+      THREE.MathUtils.randFloatSpread(OTANK.maxZ * 0.6),
+    ));
+  });
+
+  // Auto-dim on inactivity (parity with deep-sea)
+  let _lastMove = performance.now();
+  ['pointermove', 'pointerdown', 'keydown'].forEach(evt =>
+    window.addEventListener(evt, () => { _lastMove = performance.now(); uiPanel.classList.remove('dim'); }, { passive: true })
+  );
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
   window.addEventListener('resize', () => {
@@ -118,8 +186,11 @@ export function launch() {
     animateWater(waterSurf, time);
     animateParticles(particles, dt);
     for (const c of creatures) c.update(dt, time, state);
+    updateFood(dt);
     obs.update(dt);
+    audio.update(dt, time);
     if (!obs.isObserving) orbit.update();
+    if (performance.now() - _lastMove > 5000) uiPanel.classList.add('dim');
     renderer.render(scene, camera);
   }
   loop();
@@ -412,7 +483,7 @@ function animateParticles({ points, vel }, dt) {
 
 // ─── Full UI panel ────────────────────────────────────────────────────────
 
-function buildUI(obs, renderer) {
+function buildUI(obs, renderer, audio, onFeed) {
   const panel = document.createElement('div');
   panel.className = 'ui';
 
@@ -453,6 +524,35 @@ function buildUI(obs, renderer) {
   });
   cGroup.appendChild(btnB);
 
+  // Sound toggle
+  let soundOn = false;
+  const btnSound = document.createElement('button');
+  btnSound.className = 'btn';
+  btnSound.textContent = '音 OFF';
+  btnSound.setAttribute('aria-pressed', 'false');
+  btnSound.addEventListener('click', () => {
+    if (soundOn) {
+      audio.disable();
+      soundOn = false;
+      btnSound.textContent = '音 OFF';
+      btnSound.setAttribute('aria-pressed', 'false');
+    } else {
+      if (audio.enable()) {
+        soundOn = true;
+        btnSound.textContent = '音 ON';
+        btnSound.setAttribute('aria-pressed', 'true');
+      }
+    }
+  });
+  cGroup.appendChild(btnSound);
+
+  const btnFeed = document.createElement('button');
+  btnFeed.className = 'btn accent';
+  btnFeed.textContent = '餌';
+  btnFeed.title = '餌を与える';
+  btnFeed.addEventListener('click', () => onFeed?.());
+  cGroup.appendChild(btnFeed);
+
   const back = document.createElement('button');
   back.className = 'btn';
   back.textContent = '← 水槽選択';
@@ -474,6 +574,7 @@ function buildUI(obs, renderer) {
   panel.appendChild(toggle);
 
   document.body.appendChild(panel);
+  return panel;
 }
 
 // ─── OceanCreature base ───────────────────────────────────────────────────
@@ -525,7 +626,7 @@ class Dolphin extends OceanCreature {
         speed: 4.2, maxAccel: 3.0, turnRate: 1.8,
         depthMin: OTANK.floorY + 6, depthMax: OTANK.maxY - 2,
         wanderMin: 8, wanderMax: 18, wallMargin: 10,
-        facesVelocity: true,
+        facesVelocity: true, reactsToFood: true,
       },
     });
     this._phase = Math.random() * Math.PI * 2;
@@ -533,13 +634,14 @@ class Dolphin extends OceanCreature {
   onUpdate(dt, time) {
     const t = time * 3.4 + this._phase;
     const tail = this.mesh.userData.tail;
-    if (tail) tail.rotation.x = Math.sin(t) * (0.22 + this.speedNorm * 0.18);
-    // Bank into turns + subtle roll wave
-    this.mesh.rotation.z = -this.turnSignal * 0.30 + Math.sin(t + 0.7) * 0.045;
-    // Pitch: nose rises/falls slightly while swimming
-    this.mesh.rotation.x = Math.sin(t * 0.55) * 0.07;
-    // Porpoising — vertical bob offset from physics pos
-    this.mesh.position.y = this.pos.y + Math.sin(t * 0.68) * 0.55;
+    // Energetic tail — fastest stroke of all species
+    if (tail) tail.rotation.x = Math.sin(t) * (0.32 + this.speedNorm * 0.24);
+    // Lively banking, snappy turns
+    this.mesh.rotation.z = -this.turnSignal * 0.40 + Math.sin(t + 0.7) * 0.055;
+    // Active nose pitch
+    this.mesh.rotation.x = Math.sin(t * 0.55) * 0.10;
+    // Pronounced porpoising — signature dolphin motion
+    this.mesh.position.y = this.pos.y + Math.sin(t * 0.72) * 1.0;
   }
 }
 
@@ -614,10 +716,11 @@ class Orca extends OceanCreature {
   onUpdate(dt, time) {
     const t = time * 1.6 + this._phase;
     const tail = this.mesh.userData.tail;
-    if (tail) tail.rotation.x = Math.sin(t) * (0.20 + this.speedNorm * 0.14);
-    // Heavy bank into turns — orca rolls its whole body
-    this.mesh.rotation.z = -this.turnSignal * 0.26 + Math.sin(t + 0.6) * 0.038;
-    this.mesh.rotation.x = Math.sin(t * 0.42) * 0.04;
+    if (tail) tail.rotation.x = Math.sin(t) * (0.24 + this.speedNorm * 0.16);
+    // Heavy whole-body roll into turns — unmistakably massive
+    this.mesh.rotation.z = -this.turnSignal * 0.46 + Math.sin(t + 0.6) * 0.040;
+    // Slow deliberate pitch — purpose over speed
+    this.mesh.rotation.x = Math.sin(t * 0.38) * 0.055;
   }
 }
 
@@ -694,12 +797,14 @@ class Whale extends OceanCreature {
   onUpdate(dt, time) {
     const t = time * 0.85 + this._phase;
     const tail = this.mesh.userData.tail;
-    // Deeper stroke amplitude — immense tail driving enormous mass
-    if (tail) tail.rotation.x = Math.sin(t) * (0.24 + this.speedNorm * 0.13);
-    // Gentle bank — slow but unmistakably purposeful
-    this.mesh.rotation.z = -this.turnSignal * 0.18 + Math.sin(t * 0.52) * 0.028;
-    // Very subtle pitch — whale undulates through the water column
-    this.mesh.rotation.x = Math.sin(t * 0.36) * 0.022;
+    // Deepest, most powerful tail stroke of any species
+    if (tail) tail.rotation.x = Math.sin(t) * (0.36 + this.speedNorm * 0.18);
+    // Ponderous bank — turns take forever for this mass
+    this.mesh.rotation.z = -this.turnSignal * 0.24 + Math.sin(t * 0.44) * 0.032;
+    // Slow full-body undulation through the water column
+    this.mesh.rotation.x = Math.sin(t * 0.30) * 0.030;
+    // Subtle depth-glide — the whole body shifts gently
+    this.mesh.position.y = this.pos.y + Math.sin(t * 0.25) * 0.65;
   }
 }
 
@@ -770,16 +875,31 @@ class Shark extends OceanCreature {
         facesVelocity: true,
       },
     });
-    this._phase = Math.random() * Math.PI * 2;
+    this._phase      = Math.random() * Math.PI * 2;
+    this._baseSpeed  = 2.4;
+    this._rushing    = false;
+    this._rushTimer  = 5 + Math.random() * 8; // seconds until next state change
   }
   onUpdate(dt, time) {
     const t = time * 2.1 + this._phase;
     const tail = this.mesh.userData.tail;
-    if (tail) tail.rotation.y = Math.sin(t) * (0.25 + this.speedNorm * 0.16);
-    // Fish bank: lean into the turn
-    this.mesh.rotation.z = this.turnSignal * 0.22 + Math.sin(t * 0.58) * 0.03;
-    // Pitch — shark traces gentle arcs through depth
-    this.mesh.rotation.x = Math.sin(t * 0.44) * 0.038;
+
+    // Tension burst: irregular speed spikes mimic predatory hunting
+    this._rushTimer -= dt;
+    if (this._rushTimer <= 0) {
+      this._rushing = !this._rushing;
+      this._rushTimer = this._rushing
+        ? 1.5 + Math.random() * 2.5   // burst: 1.5–4s
+        : 5   + Math.random() * 10;   // rest: 5–15s
+      this.cfg.speed = this._baseSpeed * (this._rushing ? 1.55 : 1.0);
+    }
+
+    const rushMul = this._rushing ? 1.35 : 1.0;
+    if (tail) tail.rotation.y = Math.sin(t * rushMul) * (0.30 + this.speedNorm * 0.22);
+    // Tense angular lean — knifes through water
+    this.mesh.rotation.z = this.turnSignal * 0.30 + Math.sin(t * 0.55) * 0.035;
+    // Hunting arcs — rises and dives constantly
+    this.mesh.rotation.x = Math.sin(t * 0.42) * 0.052;
   }
 }
 
@@ -852,23 +972,31 @@ class Megalodon extends OceanCreature {
       species: 'megalodon',
       mesh: makeMegalodonMesh(),
       cfg: {
-        speed: 0.72, maxAccel: 0.38, turnRate: 0.32,
-        depthMin: OTANK.floorY + 3, depthMax: OTANK.floorY + 14,
-        wanderMin: 20, wanderMax: 42, wallMargin: 16,
+        speed: 0.72, maxAccel: 0.38, turnRate: 0.28,
+        depthMin: OTANK.floorY + 2, depthMax: OTANK.floorY + 16,
+        wanderMin: 22, wanderMax: 48, wallMargin: 16,
         facesVelocity: true,
       },
     });
     this._phase = Math.random() * Math.PI * 2;
   }
+  // 25% chance: surge shallower on each new waypoint — ominous sudden appearance
+  onPickTarget(target) {
+    if (Math.random() < 0.25) {
+      target.y = THREE.MathUtils.randFloat(OTANK.floorY + 4, OTANK.floorY + 20);
+    }
+  }
   onUpdate(dt, time) {
     const t = time * 1.15 + this._phase;
     const tail = this.mesh.userData.tail;
-    // Massive tail — slow but powerful sweeps
-    if (tail) tail.rotation.y = Math.sin(t) * (0.19 + this.speedNorm * 0.12);
-    // Ominous lean — the sheer mass of the turn is visible
-    this.mesh.rotation.z = this.turnSignal * 0.20 + Math.sin(t * 0.48) * 0.026;
-    // Deep-dive pitch — hunts in the abyss
-    this.mesh.rotation.x = Math.sin(t * 0.32) * 0.032;
+    // Massive inexorable tail — slower period, higher amplitude than shark
+    if (tail) tail.rotation.y = Math.sin(t) * (0.25 + this.speedNorm * 0.15);
+    // Crushing weight in every turn — absolute, not agile
+    this.mesh.rotation.z = this.turnSignal * 0.26 + Math.sin(t * 0.40) * 0.028;
+    // Always searching the abyss — nose tilts as it hunts depth
+    this.mesh.rotation.x = Math.sin(t * 0.28) * 0.040;
+    // Slow vertical drift — predator adjusting depth with gravity-like weight
+    this.mesh.position.y = this.pos.y + Math.sin(t * 0.18) * 0.40;
   }
 }
 

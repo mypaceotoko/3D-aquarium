@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TANK } from '../scene.js';
 import { Creature } from '../creatures/Creature.js';
 import { initObservation } from '../interaction/observationManager.js';
+import { initAquariumAudio } from '../audio-aquarium.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tropical aquarium — bright, warm, reef scene
@@ -75,8 +76,75 @@ export function launch() {
   // ── Observation system ───────────────────────────────────────────────────
   const obs = initObservation({ camera, orbit, canvas, getCreatures: () => creatures });
 
+  // ── Audio ─────────────────────────────────────────────────────────────────
+  const audio = initAquariumAudio({ theme: 'tropical', getCreatures: () => creatures });
+
+  // ── Food system ───────────────────────────────────────────────────────────
+  const foodList = [];
+  const T_GRAVITY = 0.45, T_DRAG = 0.55, T_EAT_R = 1.1;
+
+  function refreshFoodTarget() {
+    state.food.active = foodList.length > 0;
+    if (foodList.length > 0) state.food.position.copy(foodList[0].mesh.position);
+  }
+
+  function dropFood(point) {
+    const m = new THREE.Mesh(
+      new THREE.SphereGeometry(0.13, 8, 6),
+      new THREE.MeshStandardMaterial({ color: 0xffd080, roughness: 0.5, metalness: 0,
+        emissive: 0xff9040, emissiveIntensity: 0.7 }),
+    );
+    m.position.copy(point);
+    scene.add(m);
+    foodList.push({
+      mesh: m,
+      vel: new THREE.Vector3((Math.random()-.5)*.18, -.2, (Math.random()-.5)*.18),
+      life: 12,
+    });
+    audio.triggerFeed();
+    refreshFoodTarget();
+  }
+
+  function updateFood(dt) {
+    for (let i = foodList.length - 1; i >= 0; i--) {
+      const f = foodList[i];
+      f.life -= dt;
+      f.vel.y -= T_GRAVITY * dt;
+      f.vel.multiplyScalar(Math.pow(T_DRAG, dt));
+      f.mesh.position.addScaledVector(f.vel, dt);
+      f.mesh.rotation.y += dt * 1.2;
+      f.mesh.rotation.x += dt * 0.9;
+      let eaten = false;
+      for (const c of creatures) {
+        if (!c.cfg.reactsToFood) continue;
+        if (c.pos.distanceTo(f.mesh.position) < T_EAT_R) {
+          audio.triggerChomp(); eaten = true; break;
+        }
+      }
+      if (!eaten && (f.mesh.position.y < TANK.floorY + 0.25 || f.life <= 0)) eaten = true;
+      if (eaten) {
+        scene.remove(f.mesh);
+        f.mesh.geometry.dispose(); f.mesh.material.dispose();
+        foodList.splice(i, 1);
+      }
+    }
+    refreshFoodTarget();
+  }
+
   // ── UI ────────────────────────────────────────────────────────────────────
-  buildUI(obs, renderer);
+  const uiPanel = buildUI(obs, renderer, audio, () => {
+    dropFood(new THREE.Vector3(
+      THREE.MathUtils.randFloatSpread(TANK.maxX * 0.7),
+      TANK.maxY - 2,
+      THREE.MathUtils.randFloatSpread(TANK.maxZ * 0.7),
+    ));
+  });
+
+  // Auto-dim on inactivity (parity with deep-sea)
+  let _lastMove = performance.now();
+  ['pointermove', 'pointerdown', 'keydown'].forEach(evt =>
+    window.addEventListener(evt, () => { _lastMove = performance.now(); uiPanel.classList.remove('dim'); }, { passive: true })
+  );
 
   // ── Lifecycle ────────────────────────────────────────────────────────────
   window.addEventListener('resize', () => {
@@ -109,8 +177,11 @@ export function launch() {
     }
 
     for (const c of creatures) c.update(dt, time, state);
+    updateFood(dt);
     obs.update(dt);
+    audio.update(dt, time);
     if (!obs.isObserving) orbit.update();
+    if (performance.now() - _lastMove > 5000) uiPanel.classList.add('dim');
     renderer.render(scene, camera);
   }
   loop();
@@ -120,7 +191,7 @@ function add(scene, c) { scene.add(c.mesh); return c; }
 
 // ─── Full UI panel ────────────────────────────────────────────────────────
 
-function buildUI(obs, renderer) {
+function buildUI(obs, renderer, audio, onFeed) {
   const panel = document.createElement('div');
   panel.className = 'ui';
 
@@ -162,6 +233,35 @@ function buildUI(obs, renderer) {
   });
   cGroup.appendChild(btnB);
 
+  // Sound toggle
+  let soundOn = false;
+  const btnSound = document.createElement('button');
+  btnSound.className = 'btn';
+  btnSound.textContent = '音 OFF';
+  btnSound.setAttribute('aria-pressed', 'false');
+  btnSound.addEventListener('click', () => {
+    if (soundOn) {
+      audio.disable();
+      soundOn = false;
+      btnSound.textContent = '音 OFF';
+      btnSound.setAttribute('aria-pressed', 'false');
+    } else {
+      if (audio.enable()) {
+        soundOn = true;
+        btnSound.textContent = '音 ON';
+        btnSound.setAttribute('aria-pressed', 'true');
+      }
+    }
+  });
+  cGroup.appendChild(btnSound);
+
+  const btnFeed = document.createElement('button');
+  btnFeed.className = 'btn accent';
+  btnFeed.textContent = '餌';
+  btnFeed.title = '餌を与える';
+  btnFeed.addEventListener('click', () => onFeed?.());
+  cGroup.appendChild(btnFeed);
+
   const back = document.createElement('button');
   back.className = 'btn';
   back.textContent = '← 水槽選択';
@@ -183,6 +283,7 @@ function buildUI(obs, renderer) {
   panel.appendChild(toggle);
 
   document.body.appendChild(panel);
+  return panel;
 }
 
 // ─── Scene environment ────────────────────────────────────────────────────
@@ -316,7 +417,7 @@ class Clownfish extends Creature {
         speed: 1.8, maxAccel: 1.5, turnRate: 1.7,
         depthMin: TANK.floorY + 1.5, depthMax: TANK.floorY + 9,
         wanderMin: 3, wanderMax: 7, wallMargin: 5,
-        facesVelocity: true,
+        facesVelocity: true, reactsToFood: true,
       },
     });
     this._phase = Math.random() * Math.PI * 2;
@@ -372,7 +473,7 @@ class NeonTetra extends Creature {
         speed: 2.5, maxAccel: 2.2, turnRate: 2.4,
         depthMin: TANK.floorY + 3, depthMax: TANK.maxY - 3,
         wanderMin: 4, wanderMax: 10, wallMargin: 5,
-        facesVelocity: true,
+        facesVelocity: true, reactsToFood: true,
       },
     });
     this._phase = Math.random() * Math.PI * 2;

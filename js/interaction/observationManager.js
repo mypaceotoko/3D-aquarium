@@ -88,7 +88,10 @@ export function initObservation({ camera, orbit, canvas, getCreatures }) {
 
   function _stopObserving() {
     target = null;
-    if (orbit) orbit.enabled = true;
+    if (orbit) {
+      orbit.enabled = true;
+      orbit.update(); // sync internal state to avoid camera snap on resume
+    }
     ui.hide();
   }
 
@@ -126,8 +129,14 @@ export function initObservation({ camera, orbit, canvas, getCreatures }) {
 
       const camGoal = center.clone().add(behind);
       camera.position.lerp(camGoal,    Math.min(1, dt * 1.6 * (0.25 + 0.75 * k)));
-      if (orbit) orbit.target.lerp(center, Math.min(1, dt * 2.2));
-      else       camera.lookAt(center);
+      if (orbit) {
+        orbit.target.lerp(center, Math.min(1, dt * 2.2));
+        // Explicitly orient the camera — orbit.update() is skipped while
+        // observing, so without this the camera slides without rotating.
+        camera.lookAt(orbit.target);
+      } else {
+        camera.lookAt(center);
+      }
     },
   };
 }
