@@ -48,12 +48,16 @@ export function launch() {
   // ── Creatures ────────────────────────────────────────────────────────────
   const creatures = [];
   const counts = isMobile
-    ? { clown: 2, tetra: 6, turtle: 1 }
-    : { clown: 3, tetra: 10, turtle: 1 };
+    ? { clown: 2, tetra: 5, turtle: 1, guppy: 4, shrimp: 3, seahorse: 1, eel: 6 }
+    : { clown: 3, tetra: 8,  turtle: 1, guppy: 6, shrimp: 5, seahorse: 2, eel: 10 };
 
-  for (let i = 0; i < counts.clown;  i++) creatures.push(add(scene, new Clownfish()));
-  for (let i = 0; i < counts.tetra;  i++) creatures.push(add(scene, new NeonTetra()));
+  for (let i = 0; i < counts.clown;    i++) creatures.push(add(scene, new Clownfish()));
+  for (let i = 0; i < counts.tetra;    i++) creatures.push(add(scene, new NeonTetra()));
+  for (let i = 0; i < counts.guppy;    i++) creatures.push(add(scene, new Guppy()));
+  for (let i = 0; i < counts.shrimp;   i++) creatures.push(add(scene, new Shrimp()));
+  for (let i = 0; i < counts.seahorse; i++) creatures.push(add(scene, new Seahorse()));
   creatures.push(add(scene, new SeaTurtle()));
+  const gardenEels = buildGardenEels(scene, counts.eel);
 
   // ── Camera controls ──────────────────────────────────────────────────────
   const orbit = new OrbitControls(camera, canvas);
@@ -94,6 +98,10 @@ export function launch() {
     animateWater(waterSurf, time);
     for (const sw of seaweeds) {
       sw.rotation.z = Math.sin(time * 0.72 + sw.userData.phase) * 0.22;
+    }
+    for (const el of gardenEels) {
+      el.rotation.z = Math.sin(time * el.userData.spd + el.userData.phase) * 0.24;
+      el.rotation.x = Math.cos(time * el.userData.spd * 0.65 + el.userData.phase) * 0.12;
     }
 
     for (const c of creatures) c.update(dt, time, state);
@@ -449,6 +457,244 @@ function makeSeaTurtleMesh() {
   g.scale.setScalar(0.92);
   g.userData.flippers = flippers;
   return g;
+}
+
+// ─── Guppy (グッピー) ─────────────────────────────────────────────────────
+
+const GUPPY_COLORS = [0x2266ff, 0xff6622, 0x22cc55, 0xaa22ff, 0xff2266, 0x00cccc];
+
+class Guppy extends Creature {
+  constructor() {
+    const color = GUPPY_COLORS[Math.floor(Math.random() * GUPPY_COLORS.length)];
+    super({
+      species: 'guppy',
+      mesh: makeGuppyMesh(color),
+      cfg: {
+        speed: 2.1, maxAccel: 1.9, turnRate: 2.2,
+        depthMin: TANK.floorY + 2, depthMax: TANK.maxY - 2,
+        wanderMin: 3, wanderMax: 8, wallMargin: 5,
+        facesVelocity: true,
+      },
+    });
+    this._phase = Math.random() * Math.PI * 2;
+  }
+  onUpdate(dt, time) {
+    this.mesh.rotation.y = Math.sin(time * 5.0 + this._phase) * 0.14 * (0.4 + this.speedNorm * 0.6);
+  }
+}
+
+function makeGuppyMesh(tailColor) {
+  const g = new THREE.Group();
+  const bodyMat = new THREE.MeshStandardMaterial({ color: 0xc8d8b8, roughness: 0.50, metalness: 0.12 });
+  const tailMat = new THREE.MeshStandardMaterial({
+    color: tailColor, roughness: 0.38, side: THREE.DoubleSide,
+    transparent: true, opacity: 0.80,
+    emissive: new THREE.Color(tailColor).multiplyScalar(0.14),
+  });
+
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.17, 10, 7), bodyMat);
+  body.scale.set(2.0, 1.0, 0.70);
+  g.add(body);
+
+  // Large fan tail
+  const ts = new THREE.Shape();
+  ts.moveTo(0, 0);
+  ts.quadraticCurveTo(-0.22,  0.28, -0.44,  0.38);
+  ts.quadraticCurveTo(-0.54,  0.0,  -0.44, -0.38);
+  ts.quadraticCurveTo(-0.22, -0.28,  0.0,   0.0);
+  const tail = new THREE.Mesh(new THREE.ShapeGeometry(ts, 8), tailMat);
+  tail.position.x = -0.30;
+  g.add(tail);
+
+  // Dorsal fin
+  const ds = new THREE.Shape();
+  ds.moveTo(0, 0); ds.lineTo(-0.18, 0.22); ds.lineTo(-0.36, 0); ds.lineTo(0, 0);
+  const dors = new THREE.Mesh(new THREE.ShapeGeometry(ds, 4), tailMat.clone());
+  dors.position.set(-0.04, 0.16, 0);
+  g.add(dors);
+
+  g.scale.setScalar(0.54);
+  return g;
+}
+
+// ─── Shrimp (小エビ) ──────────────────────────────────────────────────────
+
+class Shrimp extends Creature {
+  constructor() {
+    super({
+      species: 'shrimp',
+      mesh: makeShrimpMesh(),
+      cfg: {
+        speed: 3.2, maxAccel: 4.2, turnRate: 3.8,
+        depthMin: TANK.floorY + 0.5, depthMax: TANK.floorY + 5,
+        wanderMin: 1.5, wanderMax: 4, wallMargin: 4,
+        facesVelocity: true,
+      },
+    });
+    this._phase = Math.random() * Math.PI * 2;
+  }
+  onUpdate(dt, time) {
+    this.mesh.rotation.y = Math.sin(time * 8.0 + this._phase) * 0.12;
+  }
+}
+
+function makeShrimpMesh() {
+  const g = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0xff8888, roughness: 0.42, metalness: 0.10,
+    transparent: true, opacity: 0.74,
+  });
+  const antMat = new THREE.MeshStandardMaterial({ color: 0xff7070, transparent: true, opacity: 0.55 });
+
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), mat);
+  body.scale.set(1.85, 0.78, 0.62);
+  g.add(body);
+
+  const tailCone = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.20, 6), mat);
+  tailCone.rotation.z = Math.PI / 2;
+  tailCone.position.x = -0.25;
+  g.add(tailCone);
+
+  const rostrum = new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.18, 6), mat);
+  rostrum.rotation.z = -Math.PI / 2;
+  rostrum.position.x = 0.28;
+  g.add(rostrum);
+
+  for (const side of [-1, 1]) {
+    const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.007, 0.28, 4), antMat);
+    ant.rotation.z = -0.8;
+    ant.position.set(0.22, 0.06, 0.04 * side);
+    g.add(ant);
+  }
+
+  g.scale.setScalar(0.44);
+  return g;
+}
+
+// ─── Seahorse (タツノオトシゴ) ────────────────────────────────────────────
+
+class Seahorse extends Creature {
+  constructor() {
+    super({
+      species: 'seahorse',
+      mesh: makeSeahorseMesh(),
+      cfg: {
+        speed: 0.55, maxAccel: 0.28, turnRate: 0.38,
+        depthMin: TANK.floorY + 3, depthMax: TANK.maxY - 3,
+        wanderMin: 8, wanderMax: 18, wallMargin: 6,
+        facesVelocity: false,
+      },
+    });
+    this._phase = Math.random() * Math.PI * 2;
+  }
+  onUpdate(dt, time) {
+    if (this.vel.lengthSq() > 0.0005) {
+      const ang = Math.atan2(-this.vel.z, this.vel.x);
+      const cur = this.mesh.rotation.y;
+      this.mesh.rotation.y = cur + (ang - cur) * Math.min(1, dt * 0.45);
+    }
+    this.mesh.rotation.z = Math.sin(time * 0.85 + this._phase) * 0.10;
+  }
+}
+
+function makeSeahorseMesh() {
+  const g   = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({ color: 0xf0a030, roughness: 0.62, metalness: 0.06 });
+  const dk  = new THREE.MeshStandardMaterial({ color: 0xb87020, roughness: 0.72 });
+  const finMat = new THREE.MeshStandardMaterial({
+    color: 0xffcc44, roughness: 0.42, side: THREE.DoubleSide, transparent: true, opacity: 0.70,
+  });
+
+  // Head
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 9, 7), mat);
+  head.position.set(0, 0.86, 0);
+  head.scale.set(0.88, 1.0, 0.72);
+  g.add(head);
+
+  // Snout
+  const snout = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.038, 0.30, 7), mat);
+  snout.rotation.z = -0.35;
+  snout.position.set(0.22, 0.90, 0);
+  g.add(snout);
+
+  // Neck
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.21, 0.28, 9), mat);
+  neck.position.set(0, 0.55, 0);
+  g.add(neck);
+
+  // Body
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.24, 10, 8), mat);
+  body.scale.set(0.86, 1.18, 0.70);
+  body.position.set(0, 0.14, 0);
+  g.add(body);
+
+  // Curled tail (5 segments)
+  for (let i = 0; i < 5; i++) {
+    const t   = i / 4;
+    const ang = t * 1.9;
+    const seg = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.12 - t * 0.072, 0.15 - t * 0.072, 0.22, 7), dk,
+    );
+    seg.position.set(Math.sin(ang) * 0.20, -0.22 - t * 0.32, 0);
+    seg.rotation.z = ang * 0.58;
+    g.add(seg);
+  }
+
+  // Crown spines
+  for (let i = 0; i < 4; i++) {
+    const sp = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.11, 5), dk);
+    sp.position.set(-0.04 + i * 0.04, 1.08 - i * 0.055, Math.sin(i * 1.2) * 0.07);
+    g.add(sp);
+  }
+
+  // Dorsal fin
+  const fs = new THREE.Shape();
+  fs.moveTo(0, 0); fs.lineTo(0.20, 0.15); fs.lineTo(0, 0.28); fs.lineTo(-0.07, 0.13); fs.lineTo(0, 0);
+  const fin = new THREE.Mesh(new THREE.ShapeGeometry(fs, 6), finMat);
+  fin.position.set(0, 0.08, 0.25);
+  fin.rotation.y = Math.PI / 2;
+  g.add(fin);
+
+  g.scale.setScalar(0.82);
+  return g;
+}
+
+// ─── Garden Eels (チンアナゴ) ─────────────────────────────────────────────
+
+function buildGardenEels(scene, count) {
+  const bodyMat = new THREE.MeshStandardMaterial({ color: 0xc8b880, roughness: 0.65, metalness: 0.04 });
+  const dotMat  = new THREE.MeshStandardMaterial({ color: 0x706050, roughness: 0.70 });
+  const eels    = [];
+  for (let i = 0; i < count; i++) {
+    const h   = THREE.MathUtils.randFloat(1.4, 2.5);
+    const geo = new THREE.CylinderGeometry(0.042, 0.072, h, 8, 1);
+    geo.translate(0, h / 2, 0);   // pivot at base so rotation swings the tip
+    const eel = new THREE.Mesh(geo, bodyMat.clone());
+    eel.position.set(
+      THREE.MathUtils.randFloat(-22, 22),
+      TANK.floorY + 0.06,
+      THREE.MathUtils.randFloat(-16, 16),
+    );
+    eel.userData.phase = Math.random() * Math.PI * 2;
+    eel.userData.spd   = 0.33 + Math.random() * 0.30;
+
+    // Head
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.064, 8, 6), bodyMat.clone());
+    head.position.y = h + 0.022;
+    head.scale.set(0.88, 1.08, 0.82);
+    eel.add(head);
+
+    // Spot markings
+    for (let j = 0; j < 3; j++) {
+      const dot = new THREE.Mesh(new THREE.SphereGeometry(0.024, 5, 4), dotMat);
+      dot.position.set(0.052, h * (0.22 + j * 0.22), 0);
+      eel.add(dot);
+    }
+
+    scene.add(eel);
+    eels.push(eel);
+  }
+  return eels;
 }
 
 // ─── Water surface ────────────────────────────────────────────────────────
