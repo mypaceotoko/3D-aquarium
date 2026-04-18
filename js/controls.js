@@ -43,6 +43,7 @@ export function initControls({
 
   let tween = null;                // one-shot tween to a fixed target (e.g. waypoint)
   let follow = null;               // { creature, offset, targetLook: Vector3 } — continuous
+  let followExpiry = Infinity;     // Infinity = user-initiated; finite = ambient auto-follow
   let userUntil = 0;               // performance.now()/1000 baseline — ambient paused until then
   let lastUserInteraction = 0;
 
@@ -98,6 +99,7 @@ export function initControls({
 
     if (best) {
       follow = makeFollow(best);
+      followExpiry = Infinity;
       return;
     }
 
@@ -161,12 +163,13 @@ export function initControls({
       if (!list.length) return;
       const c = list[Math.floor(Math.random() * list.length)];
       follow = makeFollow(c);
+      followExpiry = Infinity;
       // Force a short ambient pause so the user sees the zoom land
       userUntil = performance.now() / 1000 + 8;
     },
 
     /** Cancel follow / tween — back to free orbit. */
-    release() { follow = null; tween = null; },
+    release() { follow = null; tween = null; followExpiry = Infinity; },
 
     update(dt) {
       const now = performance.now() / 1000;
@@ -184,6 +187,15 @@ export function initControls({
 
       // --- Follow mode -------------------------------------------------
       if (follow) {
+        // Ambient auto-follow expires after its allotted duration → resume waypoint cycle
+        if (followExpiry < Infinity && now > followExpiry) {
+          follow = null;
+          followExpiry = Infinity;
+          wpIdx = (wpIdx + 1) % waypoints.length;
+          wpT = 0;
+          controls.update();
+          return;
+        }
         const c = follow.creature;
         const center = c.getCenter(tmpV).clone();
         // Anchor behind the creature along its heading so we "trail" it
@@ -218,15 +230,29 @@ export function initControls({
           wpIdx = (wpIdx + 1) % waypoints.length;
           wpT = 0;
           const wp = waypoints[wpIdx];
-          // Smooth waypoint transition over ~7s
-          tween = {
-            fromPos: camera.position.clone(),
-            fromLook: controls.target.clone(),
-            toPos: wp.pos.clone(),
-            toLook: wp.look.clone(),
-            t: 0,
-            duration: 7.5,
-          };
+          // Waypoint 5: auto-follow the Leviathan for one cycle instead of a fixed tween
+          if (wpIdx === 5) {
+            const lev = (getCreatures?.() ?? []).find(c => c.species === 'leviathan');
+            if (lev) {
+              follow = makeFollow(lev);
+              followExpiry = now + WP_DUR;
+            } else {
+              tween = {
+                fromPos: camera.position.clone(), fromLook: controls.target.clone(),
+                toPos: wp.pos.clone(), toLook: wp.look.clone(), t: 0, duration: 7.5,
+              };
+            }
+          } else {
+            // Smooth waypoint transition over ~7s
+            tween = {
+              fromPos: camera.position.clone(),
+              fromLook: controls.target.clone(),
+              toPos: wp.pos.clone(),
+              toLook: wp.look.clone(),
+              t: 0,
+              duration: 7.5,
+            };
+          }
         } else if (!tween) {
           // Slow orbital drift around the current look target, easing the
           // camera toward the waypoint position while rotating a bit.
