@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { Creature } from '../creatures/Creature.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Giant Ocean Aquarium — ジャイアントオーシャン水槽
@@ -64,6 +65,10 @@ export function launch() {
   buildSunRays(scene);
   const particles  = buildParticles(scene, isMobile);
 
+  // ── Creatures ────────────────────────────────────────────────────────────
+  const creatures = [];
+  const state     = { food: { active: false, position: new THREE.Vector3() } };
+
   // ── UI ────────────────────────────────────────────────────────────────────
   buildUI();
 
@@ -91,6 +96,7 @@ export function launch() {
 
     animateWater(waterSurf, time);
     animateParticles(particles, dt);
+    for (const c of creatures) c.update(dt, time, state);
 
     orbit.update();
     renderer.render(scene, camera);
@@ -407,4 +413,42 @@ function buildUI() {
   back.addEventListener('click', () => location.reload());
   panel.appendChild(back);
   document.body.appendChild(panel);
+}
+
+// ─── OceanCreature base ───────────────────────────────────────────────────
+// Extends Creature but uses OTANK bounds for wall-avoidance and target picks.
+
+class OceanCreature extends Creature {
+  constructor(args) {
+    super(args);
+    // Re-spawn inside the larger ocean bounds
+    this.pos.set(
+      THREE.MathUtils.randFloatSpread(OTANK.maxX * 1.5),
+      THREE.MathUtils.randFloat(this.cfg.depthMin, this.cfg.depthMax),
+      THREE.MathUtils.randFloatSpread(OTANK.maxZ * 1.5),
+    );
+    this.mesh.position.copy(this.pos);
+  }
+
+  pickTarget(state) {
+    const { cfg } = this;
+    this.target.set(
+      THREE.MathUtils.randFloat(OTANK.minX + cfg.wallMargin, OTANK.maxX - cfg.wallMargin),
+      THREE.MathUtils.randFloat(cfg.depthMin, cfg.depthMax),
+      THREE.MathUtils.randFloat(OTANK.minZ + cfg.wallMargin, OTANK.maxZ - cfg.wallMargin),
+    );
+    this.onPickTarget?.(this.target, state);
+    this.wanderT = THREE.MathUtils.randFloat(cfg.wanderMin, cfg.wanderMax);
+  }
+
+  avoidWalls(desired) {
+    const { pos, cfg } = this;
+    const mx = cfg.wallMargin;
+    if (pos.x >  OTANK.maxX - mx) desired.x -= (pos.x - (OTANK.maxX - mx)) * 0.9;
+    if (pos.x <  OTANK.minX + mx) desired.x += ((OTANK.minX + mx) - pos.x) * 0.9;
+    if (pos.z >  OTANK.maxZ - mx) desired.z -= (pos.z - (OTANK.maxZ - mx)) * 0.9;
+    if (pos.z <  OTANK.minZ + mx) desired.z += ((OTANK.minZ + mx) - pos.z) * 0.9;
+    if (pos.y >  cfg.depthMax)    desired.y -= (pos.y - cfg.depthMax) * 1.2;
+    if (pos.y <  cfg.depthMin)    desired.y += (cfg.depthMin - pos.y) * 1.2;
+  }
 }
