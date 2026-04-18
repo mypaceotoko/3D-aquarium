@@ -88,7 +88,7 @@ export function launch() {
   const obs = initObservation({ camera, orbit, canvas, getCreatures: () => creatures });
 
   // ── UI ────────────────────────────────────────────────────────────────────
-  buildUI();
+  buildUI(obs, renderer);
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
   window.addEventListener('resize', () => {
@@ -410,44 +410,69 @@ function animateParticles({ points, vel }, dt) {
   pos.needsUpdate = true;
 }
 
-// ─── Minimal UI ───────────────────────────────────────────────────────────
+// ─── Full UI panel ────────────────────────────────────────────────────────
 
-function buildUI() {
+function buildUI(obs, renderer) {
   const panel = document.createElement('div');
-  panel.style.cssText = [
-    'position:fixed',
-    'bottom:max(18px,env(safe-area-inset-bottom))',
-    'left:50%',
-    'transform:translateX(-50%)',
-    'z-index:100',
-    'display:flex',
-    'gap:8px',
-    'padding:10px',
-    'border-radius:18px',
-    'background:rgba(0,20,40,0.42)',
-    'backdrop-filter:blur(14px)',
-    '-webkit-backdrop-filter:blur(14px)',
-    'border:1px solid rgba(80,180,255,0.18)',
-    'box-shadow:0 8px 36px rgba(0,0,0,0.45)',
-  ].join(';');
+  panel.className = 'ui';
+
+  const body = document.createElement('div');
+  body.className = 'ui-body';
+
+  // Species buttons
+  const sGroup = document.createElement('div');
+  sGroup.className = 'group species';
+  const SPECIES = [
+    { id: 'dolphin',   label: 'イルカ' },
+    { id: 'orca',      label: 'シャチ' },
+    { id: 'whale',     label: 'クジラ' },
+    { id: 'shark',     label: 'サメ' },
+    { id: 'megalodon', label: 'メガロドン' },
+  ];
+  for (const sp of SPECIES) {
+    const b = document.createElement('button');
+    b.className = 'btn';
+    b.textContent = sp.label;
+    b.addEventListener('click', () => obs.selectSpecies(sp.id));
+    sGroup.appendChild(b);
+  }
+  body.appendChild(sGroup);
+
+  // Controls: brightness + back
+  const cGroup = document.createElement('div');
+  cGroup.className = 'group';
+  const BRIGHT = [{ label: '暗め', v: 0.75 }, { label: '標準', v: 1.15 }, { label: '明るめ', v: 1.65 }];
+  let bIdx = 1;
+  const btnB = document.createElement('button');
+  btnB.className = 'btn';
+  btnB.textContent = `明 ${BRIGHT[bIdx].label}`;
+  btnB.addEventListener('click', () => {
+    bIdx = (bIdx + 1) % BRIGHT.length;
+    renderer.toneMappingExposure = BRIGHT[bIdx].v;
+    btnB.textContent = `明 ${BRIGHT[bIdx].label}`;
+  });
+  cGroup.appendChild(btnB);
 
   const back = document.createElement('button');
+  back.className = 'btn';
   back.textContent = '← 水槽選択';
-  back.style.cssText = [
-    'appearance:none',
-    'border:1px solid rgba(80,180,255,0.22)',
-    'background:rgba(0,15,35,0.60)',
-    'color:#b8e0ff',
-    'padding:8px 14px',
-    'border-radius:12px',
-    'font:inherit',
-    'font-size:12px',
-    'letter-spacing:0.04em',
-    'cursor:pointer',
-    'white-space:nowrap',
-  ].join(';');
   back.addEventListener('click', () => location.reload());
-  panel.appendChild(back);
+  cGroup.appendChild(back);
+  body.appendChild(cGroup);
+
+  panel.appendChild(body);
+
+  const toggle = document.createElement('button');
+  toggle.className = 'btn btn-toggle';
+  toggle.textContent = '▾';
+  toggle.setAttribute('aria-expanded', 'true');
+  toggle.addEventListener('click', () => {
+    const collapsed = panel.classList.toggle('collapsed');
+    toggle.textContent = collapsed ? '▴' : '▾';
+    toggle.setAttribute('aria-expanded', String(!collapsed));
+  });
+  panel.appendChild(toggle);
+
   document.body.appendChild(panel);
 }
 

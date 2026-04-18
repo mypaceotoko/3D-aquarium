@@ -100,6 +100,12 @@ export function initObservation({ camera, orbit, canvas, getCreatures }) {
 
     stopObserving: _stopObserving,
 
+    selectSpecies(speciesId) {
+      const list = (getCreatures?.() ?? []).filter(c => c.species === speciesId);
+      if (!list.length) return;
+      _startObserving(list[Math.floor(Math.random() * list.length)]);
+    },
+
     update(dt) {
       if (!target) return;
 
