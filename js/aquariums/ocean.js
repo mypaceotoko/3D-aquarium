@@ -68,6 +68,10 @@ export function launch() {
   // ── Creatures ────────────────────────────────────────────────────────────
   const creatures = [];
   const state     = { food: { active: false, position: new THREE.Vector3() } };
+  const addC = (c) => { scene.add(c.mesh); creatures.push(c); };
+
+  const nDolphin = isMobile ? 3 : 5;
+  for (let i = 0; i < nDolphin; i++) addC(new Dolphin());
 
   // ── UI ────────────────────────────────────────────────────────────────────
   buildUI();
@@ -451,4 +455,80 @@ class OceanCreature extends Creature {
     if (pos.y >  cfg.depthMax)    desired.y -= (pos.y - cfg.depthMax) * 1.2;
     if (pos.y <  cfg.depthMin)    desired.y += (cfg.depthMin - pos.y) * 1.2;
   }
+}
+
+// ─── Dolphin (イルカ) ─────────────────────────────────────────────────────
+
+class Dolphin extends OceanCreature {
+  constructor() {
+    super({
+      species: 'dolphin',
+      mesh: makeDolphinMesh(),
+      cfg: {
+        speed: 4.2, maxAccel: 3.0, turnRate: 1.8,
+        depthMin: OTANK.floorY + 6, depthMax: OTANK.maxY - 2,
+        wanderMin: 8, wanderMax: 18, wallMargin: 10,
+        facesVelocity: true,
+      },
+    });
+    this._phase = Math.random() * Math.PI * 2;
+  }
+  onUpdate(dt, time) {
+    const t = time * 3.4 + this._phase;
+    const tail = this.mesh.userData.tail;
+    if (tail) tail.rotation.x = Math.sin(t) * (0.20 + this.speedNorm * 0.14);
+    this.mesh.rotation.z = Math.sin(t + 0.7) * 0.04;
+  }
+}
+
+function makeDolphinMesh() {
+  const g       = new THREE.Group();
+  const bodyMat = new THREE.MeshStandardMaterial({ color: 0x4a6882, roughness: 0.52, metalness: 0.10 });
+  const bellyMat= new THREE.MeshStandardMaterial({ color: 0xb0c8d8, roughness: 0.52, metalness: 0.06 });
+
+  // Body
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.48, 12, 9), bodyMat);
+  body.scale.set(2.9, 1.0, 0.82);
+  g.add(body);
+
+  // Belly
+  const belly = new THREE.Mesh(new THREE.SphereGeometry(0.44, 10, 7), bellyMat);
+  belly.scale.set(2.5, 0.55, 0.72);
+  belly.position.y = -0.14;
+  g.add(belly);
+
+  // Rostrum
+  const snout = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.20, 0.72, 8), bodyMat);
+  snout.rotation.z = Math.PI / 2;
+  snout.position.x = 1.52;
+  g.add(snout);
+
+  // Dorsal fin
+  const dFin = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.50, 6), bodyMat);
+  dFin.position.set(0.0, 0.46, 0);
+  g.add(dFin);
+
+  // Pectoral fins
+  for (const s of [-1, 1]) {
+    const pFin = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.52, 5), bodyMat);
+    pFin.rotation.z = s * 1.25;
+    pFin.position.set(0.55, -0.08, s * 0.40);
+    g.add(pFin);
+  }
+
+  // Tail group (pivot for animation)
+  const tail = new THREE.Group();
+  tail.position.x = -1.45;
+  for (const s of [-1, 1]) {
+    const fluke = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.52, 5), bodyMat);
+    fluke.rotation.z = Math.PI / 2;
+    fluke.rotation.y = s * 0.52;
+    fluke.position.set(-0.28, 0, s * 0.26);
+    tail.add(fluke);
+  }
+  g.add(tail);
+  g.userData.tail = tail;
+
+  g.scale.setScalar(1.4);
+  return g;
 }
