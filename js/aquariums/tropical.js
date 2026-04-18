@@ -132,13 +132,19 @@ export function launch() {
   }
 
   // ── UI ────────────────────────────────────────────────────────────────────
-  buildUI(obs, renderer, audio, () => {
+  const uiPanel = buildUI(obs, renderer, audio, () => {
     dropFood(new THREE.Vector3(
       THREE.MathUtils.randFloatSpread(TANK.maxX * 0.7),
       TANK.maxY - 2,
       THREE.MathUtils.randFloatSpread(TANK.maxZ * 0.7),
     ));
   });
+
+  // Auto-dim on inactivity (parity with deep-sea)
+  let _lastMove = performance.now();
+  ['pointermove', 'pointerdown', 'keydown'].forEach(evt =>
+    window.addEventListener(evt, () => { _lastMove = performance.now(); uiPanel.classList.remove('dim'); }, { passive: true })
+  );
 
   // ── Lifecycle ────────────────────────────────────────────────────────────
   window.addEventListener('resize', () => {
@@ -175,6 +181,7 @@ export function launch() {
     obs.update(dt);
     audio.update(dt, time);
     if (!obs.isObserving) orbit.update();
+    if (performance.now() - _lastMove > 5000) uiPanel.classList.add('dim');
     renderer.render(scene, camera);
   }
   loop();
@@ -249,8 +256,9 @@ function buildUI(obs, renderer, audio, onFeed) {
   cGroup.appendChild(btnSound);
 
   const btnFeed = document.createElement('button');
-  btnFeed.className = 'btn';
-  btnFeed.textContent = '餌やり';
+  btnFeed.className = 'btn accent';
+  btnFeed.textContent = '餌';
+  btnFeed.title = '餌を与える';
   btnFeed.addEventListener('click', () => onFeed?.());
   cGroup.appendChild(btnFeed);
 
@@ -275,6 +283,7 @@ function buildUI(obs, renderer, audio, onFeed) {
   panel.appendChild(toggle);
 
   document.body.appendChild(panel);
+  return panel;
 }
 
 // ─── Scene environment ────────────────────────────────────────────────────
