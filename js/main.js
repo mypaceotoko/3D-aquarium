@@ -9,6 +9,7 @@ import { GiantIsopod }  from './creatures/GiantIsopod.js';
 import { Leviathan }    from './creatures/Leviathan.js';
 import { initControls } from './controls.js';
 import { initAudio }    from './audio.js';
+import { createObservationUI } from './interaction/observationUI.js';
 
 // ---------------------------------------------------------------------
 // Boot
@@ -175,11 +176,17 @@ function updateFood(dt) {
 // Controls + audio
 // ---------------------------------------------------------------------
 
+const obsUI = createObservationUI();
+
 const controls = initControls({
   camera, renderer, state,
   getCreatures,
-  onFeed: (point) => dropFood(point),
+  onFeed:    (point) => dropFood(point),
+  onObserve: (c)    => obsUI.show(c.species),
+  onRelease: ()     => obsUI.hide(),
 });
+
+obsUI.onClose(() => controls.release());
 
 const audio = initAudio({ state, getCreatures });
 

@@ -21,6 +21,8 @@ export function initControls({
   state,
   getCreatures,
   onFeed,
+  onObserve,
+  onRelease,
 }) {
   const canvas = renderer.domElement;
 
@@ -100,6 +102,7 @@ export function initControls({
     if (best) {
       follow = makeFollow(best);
       followExpiry = Infinity;
+      onObserve?.(best);
       return;
     }
 
@@ -164,12 +167,13 @@ export function initControls({
       const c = list[Math.floor(Math.random() * list.length)];
       follow = makeFollow(c);
       followExpiry = Infinity;
+      onObserve?.(c);
       // Force a short ambient pause so the user sees the zoom land
       userUntil = performance.now() / 1000 + 8;
     },
 
     /** Cancel follow / tween — back to free orbit. */
-    release() { follow = null; tween = null; followExpiry = Infinity; },
+    release() { follow = null; tween = null; followExpiry = Infinity; onRelease?.(); },
 
     update(dt) {
       const now = performance.now() / 1000;
@@ -182,7 +186,7 @@ export function initControls({
         // currently interacting (pointerdown).
         // Easier: drop follow after any pointerdown event that dragged more
         // than CLICK_MOVE_PX — but we don't see that here. Use a sentinel:
-        if (orbitActive) follow = null;
+        if (orbitActive) { follow = null; onRelease?.(); }
       }
 
       // --- Follow mode -------------------------------------------------
@@ -191,6 +195,7 @@ export function initControls({
         if (followExpiry < Infinity && now > followExpiry) {
           follow = null;
           followExpiry = Infinity;
+          onRelease?.();
           wpIdx = (wpIdx + 1) % waypoints.length;
           wpT = 0;
           controls.update();
