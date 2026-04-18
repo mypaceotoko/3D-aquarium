@@ -18,4 +18,12 @@ export const AQUARIUMS = [
     accent:   '#ffdd44',
     launch:   () => import('./aquariums/tropical.js').then(m => m.launch()),
   },
+  {
+    id:       'ocean',
+    title:    'ジャイアントオーシャン水槽',
+    desc:     '広大な大海原。クジラ、シャチ、メガロドン——地球最大の生命たちが悠々と泳ぐ、圧倒的スケールの海。',
+    gradient: 'linear-gradient(155deg,#001428 0%,#003060 45%,#005580 100%)',
+    accent:   '#40c8ff',
+    launch:   () => import('./aquariums/ocean.js').then(m => m.launch()),
+  },
 ];
