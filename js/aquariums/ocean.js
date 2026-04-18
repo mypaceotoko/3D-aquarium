@@ -508,8 +508,8 @@ class Dolphin extends OceanCreature {
 
 function makeDolphinMesh() {
   const g       = new THREE.Group();
-  const bodyMat = new THREE.MeshStandardMaterial({ color: 0x4a6882, roughness: 0.52, metalness: 0.10 });
-  const bellyMat= new THREE.MeshStandardMaterial({ color: 0xb0c8d8, roughness: 0.52, metalness: 0.06 });
+  const bodyMat = new THREE.MeshPhysicalMaterial({ color: 0x4a6882, roughness: 0.42, metalness: 0.10, clearcoat: 0.55, clearcoatRoughness: 0.22 });
+  const bellyMat= new THREE.MeshPhysicalMaterial({ color: 0xb0c8d8, roughness: 0.38, metalness: 0.06, clearcoat: 0.45, clearcoatRoughness: 0.25 });
 
   // Body
   const body = new THREE.Mesh(new THREE.SphereGeometry(0.48, 12, 9), bodyMat);
@@ -584,8 +584,8 @@ class Orca extends OceanCreature {
 
 function makeOrcaMesh() {
   const g       = new THREE.Group();
-  const blackMat= new THREE.MeshStandardMaterial({ color: 0x0e1418, roughness: 0.58, metalness: 0.08 });
-  const whiteMat= new THREE.MeshStandardMaterial({ color: 0xdce8f0, roughness: 0.55, metalness: 0.04 });
+  const blackMat= new THREE.MeshPhysicalMaterial({ color: 0x0e1418, roughness: 0.45, metalness: 0.08, clearcoat: 0.70, clearcoatRoughness: 0.18 });
+  const whiteMat= new THREE.MeshPhysicalMaterial({ color: 0xdce8f0, roughness: 0.40, metalness: 0.04, clearcoat: 0.55, clearcoatRoughness: 0.22 });
 
   // Body
   const body = new THREE.Mesh(new THREE.SphereGeometry(0.72, 14, 10), blackMat);
@@ -663,8 +663,8 @@ class Whale extends OceanCreature {
 
 function makeWhaleMesh() {
   const g      = new THREE.Group();
-  const mat    = new THREE.MeshStandardMaterial({ color: 0x2e4258, roughness: 0.72, metalness: 0.06 });
-  const belly  = new THREE.MeshStandardMaterial({ color: 0x4a6278, roughness: 0.68, metalness: 0.04 });
+  const mat    = new THREE.MeshPhysicalMaterial({ color: 0x2e4258, roughness: 0.58, metalness: 0.06, clearcoat: 0.40, clearcoatRoughness: 0.30 });
+  const belly  = new THREE.MeshPhysicalMaterial({ color: 0x4a6278, roughness: 0.55, metalness: 0.04, clearcoat: 0.35, clearcoatRoughness: 0.30 });
 
   // Main body — very elongated
   const body = new THREE.Mesh(new THREE.SphereGeometry(0.90, 14, 10), mat);
@@ -741,8 +741,8 @@ class Shark extends OceanCreature {
 
 function makeSharkMesh() {
   const g      = new THREE.Group();
-  const top    = new THREE.MeshStandardMaterial({ color: 0x4a5060, roughness: 0.60, metalness: 0.08 });
-  const btm    = new THREE.MeshStandardMaterial({ color: 0xb8bec8, roughness: 0.58, metalness: 0.06 });
+  const top    = new THREE.MeshPhysicalMaterial({ color: 0x4a5060, roughness: 0.48, metalness: 0.08, clearcoat: 0.50, clearcoatRoughness: 0.20 });
+  const btm    = new THREE.MeshPhysicalMaterial({ color: 0xb8bec8, roughness: 0.45, metalness: 0.06, clearcoat: 0.45, clearcoatRoughness: 0.22 });
 
   // Body
   const body = new THREE.Mesh(new THREE.SphereGeometry(0.52, 12, 9), top);
@@ -826,11 +826,12 @@ class Megalodon extends OceanCreature {
 
 function makeMegalodonMesh() {
   const g   = new THREE.Group();
-  const mat = new THREE.MeshStandardMaterial({
-    color: 0x1e2530, roughness: 0.65, metalness: 0.10,
-    emissive: new THREE.Color(0x050810), emissiveIntensity: 0.4,
+  const mat = new THREE.MeshPhysicalMaterial({
+    color: 0x1e2530, roughness: 0.52, metalness: 0.12,
+    clearcoat: 0.60, clearcoatRoughness: 0.18,
+    emissive: new THREE.Color(0x050810), emissiveIntensity: 0.5,
   });
-  const btm = new THREE.MeshStandardMaterial({ color: 0x3a424e, roughness: 0.62, metalness: 0.06 });
+  const btm = new THREE.MeshPhysicalMaterial({ color: 0x3a424e, roughness: 0.50, metalness: 0.06, clearcoat: 0.45, clearcoatRoughness: 0.22 });
 
   // Massive body — stockier than shark
   const body = new THREE.Mesh(new THREE.SphereGeometry(0.72, 14, 10), mat);
