@@ -76,6 +76,8 @@ export function launch() {
   const nOrca = isMobile ? 1 : 2;
   for (let i = 0; i < nOrca; i++) addC(new Orca());
 
+  addC(new Whale());
+
   // ── UI ────────────────────────────────────────────────────────────────────
   buildUI();
 
@@ -611,5 +613,83 @@ function makeOrcaMesh() {
   g.userData.tail = tail;
 
   g.scale.setScalar(2.8);
+  return g;
+}
+
+// ─── Whale (クジラ) ───────────────────────────────────────────────────────
+
+class Whale extends OceanCreature {
+  constructor() {
+    super({
+      species: 'whale',
+      mesh: makeWhaleMesh(),
+      cfg: {
+        speed: 0.55, maxAccel: 0.28, turnRate: 0.30,
+        depthMin: OTANK.floorY + 5, depthMax: OTANK.maxY - 4,
+        wanderMin: 22, wanderMax: 40, wallMargin: 18,
+        facesVelocity: true,
+      },
+    });
+    this._phase = Math.random() * Math.PI * 2;
+  }
+  onUpdate(dt, time) {
+    const t = time * 0.85 + this._phase;
+    const tail = this.mesh.userData.tail;
+    if (tail) tail.rotation.x = Math.sin(t) * (0.18 + this.speedNorm * 0.10);
+    // subtle body sway — gives the sense of immense mass in motion
+    this.mesh.rotation.z = Math.sin(t * 0.55) * 0.022;
+  }
+}
+
+function makeWhaleMesh() {
+  const g      = new THREE.Group();
+  const mat    = new THREE.MeshStandardMaterial({ color: 0x2e4258, roughness: 0.72, metalness: 0.06 });
+  const belly  = new THREE.MeshStandardMaterial({ color: 0x4a6278, roughness: 0.68, metalness: 0.04 });
+
+  // Main body — very elongated
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.90, 14, 10), mat);
+  body.scale.set(4.6, 1.0, 1.0);
+  g.add(body);
+
+  // Lighter belly underside
+  const bel = new THREE.Mesh(new THREE.SphereGeometry(0.82, 10, 8), belly);
+  bel.scale.set(4.0, 0.42, 0.86);
+  bel.position.y = -0.38;
+  g.add(bel);
+
+  // Rostrum (blunt head)
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.62, 10, 8), mat);
+  head.scale.set(1.15, 0.82, 0.88);
+  head.position.x = 4.2;
+  g.add(head);
+
+  // Small dorsal fin bump (blue whale style)
+  const dFin = new THREE.Mesh(new THREE.ConeGeometry(0.20, 0.38, 6), mat);
+  dFin.position.set(-1.4, 0.88, 0);
+  g.add(dFin);
+
+  // Long pectoral flippers
+  for (const s of [-1, 1]) {
+    const flip = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.22, 1.60, 7), mat);
+    flip.rotation.z = s * 1.0;
+    flip.rotation.x = 0.25;
+    flip.position.set(2.0, -0.22, s * 0.84);
+    g.add(flip);
+  }
+
+  // Tail group — wide flukes
+  const tail = new THREE.Group();
+  tail.position.x = -4.2;
+  for (const s of [-1, 1]) {
+    const fluke = new THREE.Mesh(new THREE.ConeGeometry(0.16, 1.05, 5), mat);
+    fluke.rotation.z = Math.PI / 2;
+    fluke.rotation.y = s * 0.44;
+    fluke.position.set(-0.52, 0, s * 0.52);
+    tail.add(fluke);
+  }
+  g.add(tail);
+  g.userData.tail = tail;
+
+  g.scale.setScalar(5.5);
   return g;
 }
