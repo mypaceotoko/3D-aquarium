@@ -14,6 +14,9 @@ import { initAudio }    from './audio.js';
 // Boot
 // ---------------------------------------------------------------------
 
+export function launch() {
+
+document.getElementById('ui').style.display = '';
 const canvas   = document.getElementById('stage');
 const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
               || window.matchMedia?.('(max-width: 780px)').matches;
@@ -348,3 +351,5 @@ function loop() {
 }
 
 loop();
+
+} // end launch
