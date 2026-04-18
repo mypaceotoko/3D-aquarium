@@ -35,7 +35,7 @@ export function launch() {
   // ── Scene ─────────────────────────────────────────────────────────────────
   const scene = new THREE.Scene();
   scene.background = makeOceanBg();
-  scene.fog = new THREE.FogExp2(0x001e3c, isMobile ? 0.007 : 0.009);
+  scene.fog = new THREE.FogExp2(0x002848, isMobile ? 0.0065 : 0.0085);
 
   // ── Camera ────────────────────────────────────────────────────────────────
   // Wide FOV + farther back to emphasize scale
@@ -299,14 +299,17 @@ function buildBoulders(scene) {
 
 function buildWaterSurface(scene) {
   const geo = new THREE.PlaneGeometry(130, 90, 18, 12);
-  const mat = new THREE.MeshStandardMaterial({
-    color:       0x4ab8e8,
-    roughness:   0.02,
-    metalness:   0.28,
-    transparent: true,
-    opacity:     0.18,
-    side:        THREE.FrontSide,
-    depthWrite:  false,
+  const mat = new THREE.MeshPhysicalMaterial({
+    color:              0x60c8e8,
+    roughness:          0.04,
+    metalness:          0.0,
+    reflectivity:       0.85,
+    clearcoat:          1.0,
+    clearcoatRoughness: 0.08,
+    transparent:        true,
+    opacity:            0.22,
+    side:               THREE.FrontSide,
+    depthWrite:         false,
   });
   const mesh = new THREE.Mesh(geo, mat);
   mesh.rotation.x = -Math.PI / 2;
@@ -374,10 +377,10 @@ function buildParticles(scene, isMobile) {
   geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
 
   const mat = new THREE.PointsMaterial({
-    color:       0x88ccff,
-    size:        isMobile ? 0.22 : 0.18,
+    color:       0xa0d8f8,
+    size:        isMobile ? 0.28 : 0.22,
     transparent: true,
-    opacity:     0.35,
+    opacity:     0.48,
     depthWrite:  false,
     blending:    THREE.AdditiveBlending,
     sizeAttenuation: true,
