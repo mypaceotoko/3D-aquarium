@@ -81,6 +81,8 @@ export function launch() {
   const nShark = isMobile ? 2 : 3;
   for (let i = 0; i < nShark; i++) addC(new Shark());
 
+  addC(new Megalodon());
+
   // ── UI ────────────────────────────────────────────────────────────────────
   buildUI();
 
@@ -780,5 +782,107 @@ function makeSharkMesh() {
   g.userData.tail = tail;
 
   g.scale.setScalar(2.2);
+  return g;
+}
+
+// ─── Megalodon (メガロドン) ───────────────────────────────────────────────
+
+class Megalodon extends OceanCreature {
+  constructor() {
+    super({
+      species: 'megalodon',
+      mesh: makeMegalodonMesh(),
+      cfg: {
+        speed: 0.72, maxAccel: 0.38, turnRate: 0.32,
+        depthMin: OTANK.floorY + 3, depthMax: OTANK.floorY + 14,
+        wanderMin: 20, wanderMax: 42, wallMargin: 16,
+        facesVelocity: true,
+      },
+    });
+    this._phase = Math.random() * Math.PI * 2;
+  }
+  onUpdate(dt, time) {
+    const t = time * 1.15 + this._phase;
+    const tail = this.mesh.userData.tail;
+    if (tail) tail.rotation.y = Math.sin(t) * (0.16 + this.speedNorm * 0.10);
+    this.mesh.rotation.y = Math.sin(t + 0.4) * 0.025;
+  }
+}
+
+function makeMegalodonMesh() {
+  const g   = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0x1e2530, roughness: 0.65, metalness: 0.10,
+    emissive: new THREE.Color(0x050810), emissiveIntensity: 0.4,
+  });
+  const btm = new THREE.MeshStandardMaterial({ color: 0x3a424e, roughness: 0.62, metalness: 0.06 });
+
+  // Massive body — stockier than shark
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.72, 14, 10), mat);
+  body.scale.set(2.9, 0.85, 0.88);
+  g.add(body);
+
+  // Belly — slightly lighter
+  const under = new THREE.Mesh(new THREE.SphereGeometry(0.64, 10, 7), btm);
+  under.scale.set(2.5, 0.32, 0.74);
+  under.position.y = -0.24;
+  g.add(under);
+
+  // Blunt powerful snout
+  const snout = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.68, 8), mat);
+  snout.rotation.z = -Math.PI / 2;
+  snout.position.x = 2.12;
+  g.add(snout);
+
+  // Huge first dorsal fin
+  const d1 = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.90, 6), mat);
+  d1.position.set(0.10, 0.72, 0);
+  g.add(d1);
+
+  // Second dorsal fin
+  const d2 = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.40, 5), mat);
+  d2.position.set(-1.0, 0.48, 0);
+  g.add(d2);
+
+  // Wide, powerful pectoral fins
+  for (const s of [-1, 1]) {
+    const pec = new THREE.Mesh(new THREE.ConeGeometry(0.16, 1.0, 5), mat);
+    pec.rotation.z = s * 1.30;
+    pec.rotation.x = s * 0.18;
+    pec.position.set(0.80, -0.15, s * 0.60);
+    g.add(pec);
+  }
+
+  // Caudal fin
+  const tail = new THREE.Group();
+  tail.position.x = -2.10;
+  const upper = new THREE.Mesh(new THREE.ConeGeometry(0.18, 1.0, 5), mat);
+  upper.rotation.z = Math.PI / 2;
+  upper.rotation.y = 0.30;
+  upper.position.set(-0.50, 0.22, 0);
+  tail.add(upper);
+  const lower = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.58, 5), mat);
+  lower.rotation.z = Math.PI / 2;
+  lower.rotation.y = -0.20;
+  lower.position.set(-0.32, -0.16, 0);
+  tail.add(lower);
+  g.add(tail);
+  g.userData.tail = tail;
+
+  // Eyes — cold, predatory amber glow
+  for (const s of [-1, 1]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.072, 7, 6),
+      new THREE.MeshStandardMaterial({
+        color: 0x201008,
+        emissive: new THREE.Color(0x5a2800),
+        emissiveIntensity: 1.2,
+        roughness: 0.2,
+      }),
+    );
+    eye.position.set(1.80, 0.18, s * 0.60);
+    g.add(eye);
+  }
+
+  g.scale.setScalar(5.2);
   return g;
 }
