@@ -546,18 +546,35 @@ function buildUI(obs, renderer, audio, onFeed) {
   });
   cGroup.appendChild(btnSound);
 
+  const pickAmbient = () => obs.selectSpecies(SPECIES[Math.floor(Math.random() * SPECIES.length)].id);
+  let ambientOn = true;
+  let ambientTimer = setInterval(pickAmbient, 15000);
+  pickAmbient();
+  const btnAmbient = document.createElement('button');
+  btnAmbient.className = 'btn';
+  btnAmbient.textContent = '鑑賞 ON';
+  btnAmbient.setAttribute('aria-pressed', 'true');
+  btnAmbient.addEventListener('click', () => {
+    ambientOn = !ambientOn;
+    if (ambientOn) {
+      pickAmbient();
+      ambientTimer = setInterval(pickAmbient, 15000);
+      btnAmbient.textContent = '鑑賞 ON';
+      btnAmbient.setAttribute('aria-pressed', 'true');
+    } else {
+      clearInterval(ambientTimer);
+      btnAmbient.textContent = '鑑賞 OFF';
+      btnAmbient.setAttribute('aria-pressed', 'false');
+    }
+  });
+  cGroup.appendChild(btnAmbient);
+
   const btnFeed = document.createElement('button');
   btnFeed.className = 'btn accent';
   btnFeed.textContent = '餌';
   btnFeed.title = '餌を与える';
   btnFeed.addEventListener('click', () => onFeed?.());
   cGroup.appendChild(btnFeed);
-
-  const back = document.createElement('button');
-  back.className = 'btn';
-  back.textContent = '← 水槽選択';
-  back.addEventListener('click', () => location.reload());
-  cGroup.appendChild(back);
   body.appendChild(cGroup);
 
   panel.appendChild(body);
