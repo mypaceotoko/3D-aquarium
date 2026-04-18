@@ -27,5 +27,15 @@ function enter(aq) {
   setTimeout(() => {
     overlay.style.display = 'none';
     aq.launch();
+    injectBackButton();
   }, 520);
+}
+
+function injectBackButton() {
+  const btn = document.createElement('button');
+  btn.className = 'btn back-btn';
+  btn.textContent = '◀ 水槽を変える';
+  btn.setAttribute('title', '水槽選択画面へ戻る');
+  btn.addEventListener('click', () => { location.reload(); });
+  document.body.appendChild(btn);
 }
