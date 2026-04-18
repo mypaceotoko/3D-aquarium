@@ -41,6 +41,9 @@ export function launch() {
   // ── Environment ──────────────────────────────────────────────────────────
   buildFloor(scene);
   buildCorals(scene);
+  const waterSurf = buildWaterSurface(scene);
+  buildSunRays(scene);
+  const seaweeds  = buildSeaweed(scene);
 
   // ── Creatures ────────────────────────────────────────────────────────────
   const creatures = [];
@@ -88,6 +91,10 @@ export function launch() {
     caustic.position.x = Math.sin(time * 0.38) * 9;
     caustic.position.z = Math.cos(time * 0.27) * 7;
     caustic.intensity  = 1.2 + Math.sin(time * 2.1) * 0.35;
+    animateWater(waterSurf, time);
+    for (const sw of seaweeds) {
+      sw.rotation.z = Math.sin(time * 0.72 + sw.userData.phase) * 0.22;
+    }
 
     for (const c of creatures) c.update(dt, time, state);
     orbit.update();
@@ -187,7 +194,9 @@ function buildLights(scene, isMobile) {
 }
 
 function buildFloor(scene) {
-  const mat = new THREE.MeshStandardMaterial({ color: 0xf2da7a, roughness: 0.90, metalness: 0 });
+  const mat = new THREE.MeshStandardMaterial({
+    map: makeSandTexture(), color: 0xffffff, roughness: 0.90, metalness: 0,
+  });
   const geo = new THREE.PlaneGeometry(64, 44, 22, 16);
   // Gentle sandy undulation (Z = world Y after rotation)
   const pos = geo.attributes.position;
@@ -440,4 +449,140 @@ function makeSeaTurtleMesh() {
   g.scale.setScalar(0.92);
   g.userData.flippers = flippers;
   return g;
+}
+
+// ─── Water surface ────────────────────────────────────────────────────────
+
+function buildWaterSurface(scene) {
+  // Coarse grid so per-vertex wave animation stays cheap
+  const geo = new THREE.PlaneGeometry(68, 46, 14, 10);
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0x88ddff, roughness: 0.02, metalness: 0.22,
+    transparent: true, opacity: 0.16,
+    side: THREE.FrontSide, depthWrite: false,
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.y  = TANK.maxY - 0.05;
+  scene.add(mesh);
+  return mesh;
+}
+
+function animateWater(mesh, time) {
+  const pos = mesh.geometry.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), y = pos.getY(i);
+    pos.setZ(i,
+      Math.sin(x * 0.24 + time * 1.3) * 0.20 +
+      Math.sin(y * 0.30 + time * 1.0) * 0.15 +
+      Math.cos(x * 0.12 + y * 0.18 + time * 0.75) * 0.10,
+    );
+  }
+  pos.needsUpdate = true;
+}
+
+// ─── Sun rays ─────────────────────────────────────────────────────────────
+
+function buildSunRays(scene) {
+  const mat = new THREE.MeshBasicMaterial({
+    color: 0xffeeaa, transparent: true, opacity: 0.032,
+    side: THREE.BackSide, depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  });
+  const positions = [
+    [-9, 4], [0, 2], [11, -4], [-14, -8],
+    [5, 10], [17, 5], [-3, -12], [8, -6],
+  ];
+  for (const [x, z] of positions) {
+    const m = mat.clone();
+    m.opacity = 0.022 + Math.random() * 0.024;
+    const cone = new THREE.Mesh(
+      new THREE.ConeGeometry(3.0 + Math.random() * 2.5, 22, 7), m,
+    );
+    cone.rotation.z = Math.PI;  // tip points down
+    cone.position.set(x, TANK.maxY - 10, z);
+    scene.add(cone);
+  }
+}
+
+// ─── Seaweed ──────────────────────────────────────────────────────────────
+
+function buildSeaweed(scene) {
+  const colors = [0x28a848, 0x1e8838, 0x3ab858, 0x209040];
+  const blades  = [];
+  for (let i = 0; i < 16; i++) {
+    const h   = THREE.MathUtils.randFloat(1.6, 3.8);
+    const geo = new THREE.PlaneGeometry(0.26 + Math.random() * 0.18, h, 1, 8);
+    const mat = new THREE.MeshStandardMaterial({
+      color: colors[i % colors.length],
+      roughness: 0.75,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.82 + Math.random() * 0.12,
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(
+      THREE.MathUtils.randFloatSpread(44),
+      TANK.floorY + h * 0.5,
+      THREE.MathUtils.randFloatSpread(30),
+    );
+    mesh.rotation.y    = Math.random() * Math.PI;
+    mesh.userData.phase = Math.random() * Math.PI * 2;
+    scene.add(mesh);
+    blades.push(mesh);
+  }
+  return blades;
+}
+
+// ─── Sand texture ─────────────────────────────────────────────────────────
+
+function makeSandTexture() {
+  const W = 512, H = 512;
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const ctx = c.getContext('2d');
+
+  // Base warm sand
+  ctx.fillStyle = '#f0d870';
+  ctx.fillRect(0, 0, W, H);
+
+  // Ripple lines
+  for (let i = 0; i < 24; i++) {
+    const y0 = i * 22 + Math.random() * 8;
+    ctx.beginPath();
+    ctx.strokeStyle = `rgba(155,115,35,${0.07 + Math.random() * 0.09})`;
+    ctx.lineWidth   = 0.7 + Math.random() * 1.5;
+    ctx.moveTo(0, y0);
+    for (let x = 0; x <= W; x += 6) {
+      ctx.lineTo(x, y0 + Math.sin(x * 0.038) * 4.5 + Math.sin(x * 0.016) * 2.8);
+    }
+    ctx.stroke();
+  }
+
+  // Shell / pebble dots
+  for (let i = 0; i < 80; i++) {
+    const x = Math.random() * W, y = Math.random() * H;
+    const r = 0.8 + Math.random() * 2.8;
+    ctx.globalAlpha = 0.14 + Math.random() * 0.14;
+    ctx.fillStyle   = Math.random() < 0.5 ? '#c8a040' : '#e8c870';
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // Subtle noise grain
+  const img = ctx.getImageData(0, 0, W, H);
+  const d   = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const n = (Math.random() - 0.5) * 14;
+    d[i]   = Math.max(0, Math.min(255, d[i]   + n));
+    d[i+1] = Math.max(0, Math.min(255, d[i+1] + n * 0.88));
+    d[i+2] = Math.max(0, Math.min(255, d[i+2] + n * 0.52));
+  }
+  ctx.putImageData(img, 0, 0);
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(7, 5);
+  return tex;
 }
