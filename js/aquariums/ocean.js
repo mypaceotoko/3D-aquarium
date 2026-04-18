@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Creature } from '../creatures/Creature.js';
 import { initObservation } from '../interaction/observationManager.js';
+import { initAquariumAudio } from '../audio-aquarium.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Giant Ocean Aquarium — ジャイアントオーシャン水槽
@@ -87,8 +88,11 @@ export function launch() {
   // ── Observation system ───────────────────────────────────────────────────
   const obs = initObservation({ camera, orbit, canvas, getCreatures: () => creatures });
 
+  // ── Audio ─────────────────────────────────────────────────────────────────
+  const audio = initAquariumAudio({ theme: 'ocean', getCreatures: () => creatures });
+
   // ── UI ────────────────────────────────────────────────────────────────────
-  buildUI(obs, renderer);
+  buildUI(obs, renderer, audio);
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
   window.addEventListener('resize', () => {
@@ -119,6 +123,7 @@ export function launch() {
     animateParticles(particles, dt);
     for (const c of creatures) c.update(dt, time, state);
     obs.update(dt);
+    audio.update(dt, time);
     if (!obs.isObserving) orbit.update();
     renderer.render(scene, camera);
   }
@@ -412,7 +417,7 @@ function animateParticles({ points, vel }, dt) {
 
 // ─── Full UI panel ────────────────────────────────────────────────────────
 
-function buildUI(obs, renderer) {
+function buildUI(obs, renderer, audio) {
   const panel = document.createElement('div');
   panel.className = 'ui';
 
@@ -452,6 +457,28 @@ function buildUI(obs, renderer) {
     btnB.textContent = `明 ${BRIGHT[bIdx].label}`;
   });
   cGroup.appendChild(btnB);
+
+  // Sound toggle
+  let soundOn = false;
+  const btnSound = document.createElement('button');
+  btnSound.className = 'btn';
+  btnSound.textContent = '音 OFF';
+  btnSound.setAttribute('aria-pressed', 'false');
+  btnSound.addEventListener('click', () => {
+    if (soundOn) {
+      audio.disable();
+      soundOn = false;
+      btnSound.textContent = '音 OFF';
+      btnSound.setAttribute('aria-pressed', 'false');
+    } else {
+      if (audio.enable()) {
+        soundOn = true;
+        btnSound.textContent = '音 ON';
+        btnSound.setAttribute('aria-pressed', 'true');
+      }
+    }
+  });
+  cGroup.appendChild(btnSound);
 
   const back = document.createElement('button');
   back.className = 'btn';
