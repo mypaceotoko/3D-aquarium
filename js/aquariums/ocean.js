@@ -73,6 +73,9 @@ export function launch() {
   const nDolphin = isMobile ? 3 : 5;
   for (let i = 0; i < nDolphin; i++) addC(new Dolphin());
 
+  const nOrca = isMobile ? 1 : 2;
+  for (let i = 0; i < nOrca; i++) addC(new Orca());
+
   // ── UI ────────────────────────────────────────────────────────────────────
   buildUI();
 
@@ -530,5 +533,83 @@ function makeDolphinMesh() {
   g.userData.tail = tail;
 
   g.scale.setScalar(1.4);
+  return g;
+}
+
+// ─── Orca (シャチ) ────────────────────────────────────────────────────────
+
+class Orca extends OceanCreature {
+  constructor() {
+    super({
+      species: 'orca',
+      mesh: makeOrcaMesh(),
+      cfg: {
+        speed: 2.0, maxAccel: 1.2, turnRate: 0.75,
+        depthMin: OTANK.floorY + 4, depthMax: OTANK.maxY - 3,
+        wanderMin: 14, wanderMax: 28, wallMargin: 12,
+        facesVelocity: true,
+      },
+    });
+    this._phase = Math.random() * Math.PI * 2;
+  }
+  onUpdate(dt, time) {
+    const t = time * 1.6 + this._phase;
+    const tail = this.mesh.userData.tail;
+    if (tail) tail.rotation.x = Math.sin(t) * (0.18 + this.speedNorm * 0.12);
+    this.mesh.rotation.z = Math.sin(t + 0.6) * 0.035;
+  }
+}
+
+function makeOrcaMesh() {
+  const g       = new THREE.Group();
+  const blackMat= new THREE.MeshStandardMaterial({ color: 0x0e1418, roughness: 0.58, metalness: 0.08 });
+  const whiteMat= new THREE.MeshStandardMaterial({ color: 0xdce8f0, roughness: 0.55, metalness: 0.04 });
+
+  // Body
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.72, 14, 10), blackMat);
+  body.scale.set(3.0, 1.0, 0.92);
+  g.add(body);
+
+  // White belly patch
+  const belly = new THREE.Mesh(new THREE.SphereGeometry(0.64, 10, 8), whiteMat);
+  belly.scale.set(2.2, 0.48, 0.76);
+  belly.position.y = -0.28;
+  g.add(belly);
+
+  // White eye patches
+  for (const s of [-1, 1]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 6), whiteMat);
+    eye.scale.set(0.9, 0.62, 0.28);
+    eye.position.set(1.0, 0.26, s * 0.66);
+    g.add(eye);
+  }
+
+  // Tall dorsal fin
+  const dFin = new THREE.Mesh(new THREE.ConeGeometry(0.22, 1.10, 6), blackMat);
+  dFin.position.set(-0.1, 0.88, 0);
+  g.add(dFin);
+
+  // Pectoral fins
+  for (const s of [-1, 1]) {
+    const pFin = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.80, 5), blackMat);
+    pFin.rotation.z = s * 1.15;
+    pFin.position.set(0.70, -0.18, s * 0.62);
+    g.add(pFin);
+  }
+
+  // Tail group
+  const tail = new THREE.Group();
+  tail.position.x = -2.22;
+  for (const s of [-1, 1]) {
+    const fluke = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.72, 5), blackMat);
+    fluke.rotation.z = Math.PI / 2;
+    fluke.rotation.y = s * 0.50;
+    fluke.position.set(-0.36, 0, s * 0.36);
+    tail.add(fluke);
+  }
+  g.add(tail);
+  g.userData.tail = tail;
+
+  g.scale.setScalar(2.8);
   return g;
 }
