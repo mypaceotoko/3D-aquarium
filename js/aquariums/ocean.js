@@ -504,8 +504,13 @@ class Dolphin extends OceanCreature {
   onUpdate(dt, time) {
     const t = time * 3.4 + this._phase;
     const tail = this.mesh.userData.tail;
-    if (tail) tail.rotation.x = Math.sin(t) * (0.20 + this.speedNorm * 0.14);
-    this.mesh.rotation.z = Math.sin(t + 0.7) * 0.04;
+    if (tail) tail.rotation.x = Math.sin(t) * (0.22 + this.speedNorm * 0.18);
+    // Bank into turns + subtle roll wave
+    this.mesh.rotation.z = -this.turnSignal * 0.30 + Math.sin(t + 0.7) * 0.045;
+    // Pitch: nose rises/falls slightly while swimming
+    this.mesh.rotation.x = Math.sin(t * 0.55) * 0.07;
+    // Porpoising — vertical bob offset from physics pos
+    this.mesh.position.y = this.pos.y + Math.sin(t * 0.68) * 0.55;
   }
 }
 
@@ -580,8 +585,10 @@ class Orca extends OceanCreature {
   onUpdate(dt, time) {
     const t = time * 1.6 + this._phase;
     const tail = this.mesh.userData.tail;
-    if (tail) tail.rotation.x = Math.sin(t) * (0.18 + this.speedNorm * 0.12);
-    this.mesh.rotation.z = Math.sin(t + 0.6) * 0.035;
+    if (tail) tail.rotation.x = Math.sin(t) * (0.20 + this.speedNorm * 0.14);
+    // Heavy bank into turns — orca rolls its whole body
+    this.mesh.rotation.z = -this.turnSignal * 0.26 + Math.sin(t + 0.6) * 0.038;
+    this.mesh.rotation.x = Math.sin(t * 0.42) * 0.04;
   }
 }
 
@@ -658,9 +665,12 @@ class Whale extends OceanCreature {
   onUpdate(dt, time) {
     const t = time * 0.85 + this._phase;
     const tail = this.mesh.userData.tail;
-    if (tail) tail.rotation.x = Math.sin(t) * (0.18 + this.speedNorm * 0.10);
-    // subtle body sway — gives the sense of immense mass in motion
-    this.mesh.rotation.z = Math.sin(t * 0.55) * 0.022;
+    // Deeper stroke amplitude — immense tail driving enormous mass
+    if (tail) tail.rotation.x = Math.sin(t) * (0.24 + this.speedNorm * 0.13);
+    // Gentle bank — slow but unmistakably purposeful
+    this.mesh.rotation.z = -this.turnSignal * 0.18 + Math.sin(t * 0.52) * 0.028;
+    // Very subtle pitch — whale undulates through the water column
+    this.mesh.rotation.x = Math.sin(t * 0.36) * 0.022;
   }
 }
 
@@ -736,9 +746,11 @@ class Shark extends OceanCreature {
   onUpdate(dt, time) {
     const t = time * 2.1 + this._phase;
     const tail = this.mesh.userData.tail;
-    // Fish-style: tail sweeps side-to-side (y-axis)
-    if (tail) tail.rotation.y = Math.sin(t) * (0.22 + this.speedNorm * 0.14);
-    this.mesh.rotation.y = Math.sin(t + 0.5) * 0.03;
+    if (tail) tail.rotation.y = Math.sin(t) * (0.25 + this.speedNorm * 0.16);
+    // Fish bank: lean into the turn
+    this.mesh.rotation.z = this.turnSignal * 0.22 + Math.sin(t * 0.58) * 0.03;
+    // Pitch — shark traces gentle arcs through depth
+    this.mesh.rotation.x = Math.sin(t * 0.44) * 0.038;
   }
 }
 
@@ -822,8 +834,12 @@ class Megalodon extends OceanCreature {
   onUpdate(dt, time) {
     const t = time * 1.15 + this._phase;
     const tail = this.mesh.userData.tail;
-    if (tail) tail.rotation.y = Math.sin(t) * (0.16 + this.speedNorm * 0.10);
-    this.mesh.rotation.y = Math.sin(t + 0.4) * 0.025;
+    // Massive tail — slow but powerful sweeps
+    if (tail) tail.rotation.y = Math.sin(t) * (0.19 + this.speedNorm * 0.12);
+    // Ominous lean — the sheer mass of the turn is visible
+    this.mesh.rotation.z = this.turnSignal * 0.20 + Math.sin(t * 0.48) * 0.026;
+    // Deep-dive pitch — hunts in the abyss
+    this.mesh.rotation.x = Math.sin(t * 0.32) * 0.032;
   }
 }
 
