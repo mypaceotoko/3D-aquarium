@@ -9,10 +9,10 @@ import { initAquariumAudio } from '../audio-aquarium.js';
 // ─────────────────────────────────────────────────────────────────────────────
 
 const OTANK = {
-  minX: -55, maxX: 55,
-  minY: -18, maxY: 16,
-  minZ: -40, maxZ: 40,
-  floorY: -18,
+  minX: -72, maxX: 72,
+  minY: -20, maxY: 18,
+  minZ: -54, maxZ: 54,
+  floorY: -20,
 };
 
 export function launch() {
@@ -41,8 +41,8 @@ export function launch() {
 
   // ── Camera ────────────────────────────────────────────────────────────────
   // Wide FOV + farther back to emphasize scale
-  const camera = new THREE.PerspectiveCamera(66, window.innerWidth / window.innerHeight, 0.2, 320);
-  camera.position.set(0, 5, 60);
+  const camera = new THREE.PerspectiveCamera(66, window.innerWidth / window.innerHeight, 0.2, 380);
+  camera.position.set(0, 6, 78);
 
   // ── Controls ──────────────────────────────────────────────────────────────
   const orbit = new OrbitControls(camera, canvas);
@@ -50,7 +50,7 @@ export function launch() {
   orbit.dampingFactor   = 0.07;
   orbit.enablePan       = false;
   orbit.minDistance     = 10;
-  orbit.maxDistance     = 140;
+  orbit.maxDistance     = 170;
   orbit.minPolarAngle   = 0.08;
   orbit.maxPolarAngle   = Math.PI * 0.72;
   orbit.rotateSpeed     = 0.55;
@@ -84,6 +84,9 @@ export function launch() {
   for (let i = 0; i < nShark; i++) addC(new Shark());
 
   addC(new Megalodon());
+
+  // Giant squid — the biggest showpiece of the tank
+  addC(new GiantSquid());
 
   // ── Observation system ───────────────────────────────────────────────────
   const obs = initObservation({ camera, orbit, canvas, getCreatures: () => creatures });
@@ -266,9 +269,9 @@ function buildLights(scene, isMobile) {
 // ─── Ocean floor ──────────────────────────────────────────────────────────
 
 function buildFloor(scene, isMobile) {
-  const W = 130, D = 90;
-  const segX = isMobile ? 24 : 36;
-  const segZ = isMobile ? 16 : 24;
+  const W = 170, D = 125;
+  const segX = isMobile ? 28 : 44;
+  const segZ = isMobile ? 20 : 30;
   const geo = new THREE.PlaneGeometry(W, D, segX, segZ);
 
   // Gentle rock undulation
@@ -373,7 +376,7 @@ function buildBoulders(scene, isMobile) {
 // ─── Water surface ────────────────────────────────────────────────────────
 
 function buildWaterSurface(scene) {
-  const geo = new THREE.PlaneGeometry(130, 90, 18, 12);
+  const geo = new THREE.PlaneGeometry(170, 125, 22, 16);
   const mat = new THREE.MeshPhysicalMaterial({
     color:              0x60c8e8,
     roughness:          0.04,
@@ -499,6 +502,7 @@ function buildUI(obs, renderer, audio, onFeed) {
     { id: 'whale',     label: 'クジラ' },
     { id: 'shark',     label: 'サメ' },
     { id: 'megalodon', label: 'メガロドン' },
+    { id: 'squid',     label: 'ダイオウイカ' },
   ];
   for (const sp of SPECIES) {
     const b = document.createElement('button');
@@ -1093,5 +1097,499 @@ function makeMegalodonMesh() {
   }
 
   g.scale.setScalar(5.2);
+  return g;
+}
+
+// ─── Giant Squid (ダイオウイカ) ───────────────────────────────────────────
+// The hero of the tank. Whale-scale mantle, 8 undulating arms, 2 long
+// whipping tentacles with paddle clubs, jet-propulsion pulse, and
+// chromatophore bioluminescent shimmer.
+
+class GiantSquid extends OceanCreature {
+  constructor() {
+    super({
+      species: 'squid',
+      mesh: makeGiantSquidMesh(),
+      cfg: {
+        speed: 0.85, maxAccel: 0.48, turnRate: 0.34,
+        depthMin: OTANK.floorY + 4, depthMax: OTANK.maxY - 4,
+        wanderMin: 18, wanderMax: 36, wallMargin: 22,
+        facesVelocity: true,
+      },
+    });
+    this._phase  = Math.random() * Math.PI * 2;
+    this._jetT   = 0;
+    this._jetPhase = Math.random() * Math.PI * 2;
+    this._speedBase = 0.85;
+  }
+
+  // Prefer wide-open mid-water pathways where silhouettes read best.
+  onPickTarget(target) {
+    // Occasional vertical surge — giant squid rising from the deep
+    if (Math.random() < 0.35) {
+      target.y = THREE.MathUtils.randFloat(OTANK.floorY + 3, OTANK.floorY + 10);
+    }
+  }
+
+  onUpdate(dt, time) {
+    const ud = this.mesh.userData;
+    const t  = time * 0.9 + this._phase;
+
+    // ── Jet propulsion cycle ─────────────────────────────────────────
+    // Slow inhale (mantle expands), sharp contraction (thrust), glide.
+    // Period ~3.4s.  `jet` is unipolar 0..1.
+    const jetT   = time * 1.85 + this._jetPhase;
+    const rawJet = (Math.sin(jetT) * 0.5 + 0.5);
+    const jet    = Math.pow(rawJet, 2.2);                 // sharpen contraction
+    const squash = 1.0 - jet * 0.18;                      // mantle narrows when thrusting
+    const elong  = 1.0 + jet * 0.08;
+    if (ud.mantle) {
+      // Lathe local Y = length axis; X/Z = radial.
+      // Narrow radially (squash) and extend lengthwise (elong) on contraction.
+      ud.mantle.scale.set(ud.mantleBase.x * squash, ud.mantleBase.y * elong, ud.mantleBase.z * squash);
+    }
+    if (ud.head) {
+      // Subtle expansion — head stays roughly spherical through the cycle
+      const hs = 0.98 + (1 - rawJet) * 0.05;
+      ud.head.scale.set(ud.headBase.x * hs, ud.headBase.y * hs, ud.headBase.z * hs);
+    }
+
+    // ── Fins — slow undulating wave, snaps harder during jet thrust ──
+    const finPhase = t * 1.4;
+    const finAmp   = 0.38 + jet * 0.22 + this.speedNorm * 0.18;
+    if (ud.finL) {
+      ud.finL.rotation.x = Math.sin(finPhase)            * finAmp;
+      ud.finL.rotation.z =  0.10 + Math.sin(finPhase+.4) * 0.12;
+    }
+    if (ud.finR) {
+      ud.finR.rotation.x = Math.sin(finPhase + Math.PI)  * finAmp;
+      ud.finR.rotation.z = -0.10 - Math.sin(finPhase+.4) * 0.12;
+    }
+
+    // ── Chromatophore / bioluminescent pulse ─────────────────────────
+    // Emissive crawls through red → magenta → deep violet, subtle ~4s cycle.
+    const chroma = (Math.sin(time * 1.1 + this._phase) + 1) * 0.5;   // 0..1
+    if (ud.chromaColor) {
+      ud.chromaColor.setHSL(0.97 - chroma * 0.10, 0.85, 0.18 + chroma * 0.14);
+      if (ud.mantleMat) {
+        ud.mantleMat.emissive.copy(ud.chromaColor);
+        ud.mantleMat.emissiveIntensity = 0.55 + jet * 0.65 + chroma * 0.15;
+      }
+      if (ud.armMat) {
+        ud.armMat.emissive.copy(ud.chromaColor).multiplyScalar(0.75);
+        ud.armMat.emissiveIntensity = 0.45 + chroma * 0.30;
+      }
+    }
+    // Club tip photophores pulse brighter — signature deep-sea lure look
+    const clubGlow = 0.8 + Math.sin(time * 2.3 + this._phase) * 0.35 + jet * 0.30;
+    if (ud.clubMat) ud.clubMat.emissiveIntensity = clubGlow;
+
+    // ── Body-level motion: gentle banking, depth drift ───────────────
+    this.mesh.rotation.z = -this.turnSignal * 0.22 + Math.sin(t * 0.32) * 0.030;
+    this.mesh.rotation.x =  Math.sin(t * 0.24) * 0.045;
+    this.mesh.position.y = this.pos.y + Math.sin(t * 0.22) * 0.45;
+
+    // Jet thrusts temporarily boost speed — pulsing forward glide
+    const targetSpeed = this._speedBase * (1.0 + jet * 0.50);
+    this.cfg.speed = targetSpeed;
+
+    // ── Arms: propagating sine wave root→tip, per-arm phase offset ──
+    const arms = ud.arms;
+    if (arms) {
+      const armFreq = 1.35;
+      const armDecay = 0.35;
+      for (let i = 0; i < arms.length; i++) {
+        const a   = arms[i];
+        const ph  = a.phase;
+        const ang = a.restAngle;
+        // Radial unfurl during thrust — arms streamline back, splay on glide
+        const unfurl = 0.75 - jet * 0.55;
+        for (let j = 0; j < a.segs.length; j++) {
+          const k = j / (a.segs.length - 1);
+          const wave = Math.sin(t * armFreq - j * 0.55 + ph);
+          const roll = Math.cos(t * armFreq * 0.88 - j * 0.48 + ph);
+          a.segs[j].rotation.y = wave * (0.18 * (1 - k * armDecay));
+          a.segs[j].rotation.z = roll * (0.14 * (1 - k * armDecay))
+                                + (j === 0 ? Math.sin(ang) * unfurl * 0.12 : 0);
+          // Slight radial flare on j=0 so arms splay out from head when drifting
+          if (j === 0) {
+            a.segs[j].rotation.x = Math.cos(ang) * unfurl * 0.12
+                                 + Math.sin(t * 0.7 + ph) * 0.06;
+          }
+        }
+      }
+    }
+
+    // ── Tentacles: slower, deeper wave; clubs whip behind with inertia ──
+    const tents = ud.tentacles;
+    if (tents) {
+      for (const tt of tents) {
+        for (let j = 0; j < tt.segs.length; j++) {
+          const k = j / (tt.segs.length - 1);
+          const wave = Math.sin(t * 0.95 - j * 0.42 + tt.phase);
+          const roll = Math.cos(t * 0.72 - j * 0.38 + tt.phase);
+          // Turning propagates into the tentacles — they whip outward on turns
+          const turnCurl = this.turnSignal * (0.10 + k * 0.12);
+          tt.segs[j].rotation.y = wave * (0.17 * (1 - k * 0.30)) + turnCurl;
+          tt.segs[j].rotation.z = roll * (0.13 * (1 - k * 0.30));
+        }
+      }
+    }
+  }
+}
+
+function makeGiantSquidMesh() {
+  const g = new THREE.Group();
+
+  // ── Materials ────────────────────────────────────────────────────────
+  const chromaColor = new THREE.Color(0x2a0816);
+
+  const mantleMat = new THREE.MeshPhysicalMaterial({
+    color:             0x7e1c2e,          // deep blood-red
+    roughness:         0.38,
+    metalness:         0.14,
+    clearcoat:         0.85,
+    clearcoatRoughness:0.16,
+    emissive:          chromaColor.clone(),
+    emissiveIntensity: 0.65,
+    sheen:             0.80,
+    sheenColor:        new THREE.Color(0xff5078),
+    sheenRoughness:    0.42,
+  });
+
+  const armMat = new THREE.MeshPhysicalMaterial({
+    color:             0xa4324a,
+    roughness:         0.44,
+    metalness:         0.10,
+    clearcoat:         0.65,
+    clearcoatRoughness:0.22,
+    emissive:          chromaColor.clone().multiplyScalar(0.75),
+    emissiveIntensity: 0.50,
+    sheen:             0.55,
+    sheenColor:        new THREE.Color(0xff6488),
+  });
+
+  const underMat = new THREE.MeshPhysicalMaterial({
+    color:             0xe8c0cc,           // pale countershaded belly
+    roughness:         0.52,
+    metalness:         0.04,
+    clearcoat:         0.45,
+    clearcoatRoughness:0.28,
+  });
+
+  const clubMat = new THREE.MeshPhysicalMaterial({
+    color:             0xc84866,
+    roughness:         0.36,
+    metalness:         0.16,
+    clearcoat:         0.70,
+    clearcoatRoughness:0.18,
+    emissive:          new THREE.Color(0x581020),
+    emissiveIntensity: 0.95,
+  });
+
+  // ── Mantle (tapered torpedo, tip forward at +X) ─────────────────────
+  // Lathe profile: rounded head at origin → pointed tip at +X.
+  const mantlePts = [];
+  const MANTLE_LEN = 3.6;
+  for (let i = 0; i <= 22; i++) {
+    const t = i / 22;
+    const y = t * MANTLE_LEN;                           // along axis
+    // profile: plump near head (t=0), taper to point at tip (t=1)
+    const r = Math.sin(Math.pow(1 - t, 0.85) * Math.PI * 0.5) * 0.92
+            * (0.96 - t * 0.04);
+    mantlePts.push(new THREE.Vector2(Math.max(0.001, r), y));
+  }
+  const mantleGeo = new THREE.LatheGeometry(mantlePts, 22);
+  const mantle = new THREE.Mesh(mantleGeo, mantleMat);
+  mantle.rotation.z = -Math.PI / 2;                     // axis → +X
+  mantle.position.x = 0.0;
+  g.add(mantle);
+  g.userData.mantle = mantle;
+  g.userData.mantleBase = mantle.scale.clone();
+
+  // Rounded head lobe at the front of the mantle (covers the lathe hole)
+  const head = new THREE.Mesh(
+    new THREE.SphereGeometry(0.92, 16, 12),
+    mantleMat,
+  );
+  head.scale.set(0.95, 0.95, 0.95);
+  head.position.set(-0.05, 0, 0);
+  g.add(head);
+  g.userData.head     = head;
+  g.userData.headBase = head.scale.clone();
+
+  // Pale countershaded belly stripe — iconic squid chromatophore pattern
+  const belly = new THREE.Mesh(
+    new THREE.SphereGeometry(0.82, 14, 10),
+    underMat,
+  );
+  belly.scale.set(3.1, 0.42, 0.88);
+  belly.position.set(1.35, -0.42, 0);
+  g.add(belly);
+
+  // Darker dorsal ridge — stripe of contrast along the top
+  const ridge = new THREE.Mesh(
+    new THREE.SphereGeometry(0.62, 12, 8),
+    new THREE.MeshPhysicalMaterial({
+      color:             0x3a0a18,
+      roughness:         0.45,
+      metalness:         0.18,
+      clearcoat:         0.70,
+      clearcoatRoughness:0.20,
+      emissive:          new THREE.Color(0x180004),
+      emissiveIntensity: 0.6,
+    }),
+  );
+  ridge.scale.set(3.3, 0.22, 0.42);
+  ridge.position.set(1.55, 0.52, 0);
+  g.add(ridge);
+
+  // ── Lateral fins (diamond-shaped, at the tail end of the mantle) ────
+  // Modelled as flattened ovoids, rotated outward, animated on .rotation.x
+  for (const s of [-1, 1]) {
+    const fin = new THREE.Group();
+    fin.position.set(2.95, 0.10, s * 0.55);
+
+    const blade = new THREE.Mesh(
+      new THREE.SphereGeometry(0.52, 12, 8),
+      mantleMat,
+    );
+    blade.scale.set(1.75, 0.14, 1.20);
+    blade.position.set(0.10, 0, s * 0.60);
+    fin.add(blade);
+
+    // Leading-edge darker flash — makes the fin read as diamond-shaped
+    const edge = new THREE.Mesh(
+      new THREE.SphereGeometry(0.46, 10, 6),
+      new THREE.MeshPhysicalMaterial({
+        color:             0x4a0a16,
+        roughness:         0.44,
+        metalness:         0.14,
+        clearcoat:         0.55,
+        clearcoatRoughness:0.20,
+      }),
+    );
+    edge.scale.set(1.55, 0.10, 0.65);
+    edge.position.set(0.55, 0.02, s * 0.85);
+    fin.add(edge);
+
+    g.add(fin);
+    g.userData[s > 0 ? 'finR' : 'finL'] = fin;
+  }
+
+  // ── Eyes (huge, iconic — giant squid has the largest eyes in nature) ─
+  for (const s of [-1, 1]) {
+    // Outer socket rim
+    const socket = new THREE.Mesh(
+      new THREE.SphereGeometry(0.48, 14, 10),
+      new THREE.MeshPhysicalMaterial({
+        color:             0x280510,
+        roughness:         0.36,
+        metalness:         0.20,
+        clearcoat:         0.50,
+        clearcoatRoughness:0.28,
+      }),
+    );
+    socket.scale.set(1.05, 1.05, 0.55);
+    socket.position.set(-0.42, 0.28, s * 0.78);
+    g.add(socket);
+
+    // Eyeball — mirror-polished black with a faint cyan inner glow
+    const eye = new THREE.Mesh(
+      new THREE.SphereGeometry(0.40, 18, 14),
+      new THREE.MeshPhysicalMaterial({
+        color:             0x020308,
+        roughness:         0.04,
+        metalness:         0.92,
+        clearcoat:         1.00,
+        clearcoatRoughness:0.02,
+        emissive:          new THREE.Color(0x0a2030),
+        emissiveIntensity: 0.85,
+      }),
+    );
+    eye.position.set(-0.55, 0.28, s * 0.88);
+    g.add(eye);
+
+    // W-shaped pupil hint — shallow dark disc inset
+    const pupil = new THREE.Mesh(
+      new THREE.SphereGeometry(0.22, 12, 10),
+      new THREE.MeshBasicMaterial({ color: 0x000000 }),
+    );
+    pupil.scale.set(1.0, 0.38, 0.18);
+    pupil.position.set(-0.78, 0.28, s * 1.00);
+    g.add(pupil);
+
+    // Highlight — tiny catch-light, makes eyes feel alive
+    const glint = new THREE.Mesh(
+      new THREE.SphereGeometry(0.07, 8, 6),
+      new THREE.MeshBasicMaterial({ color: 0xf0f8ff }),
+    );
+    glint.position.set(-0.88, 0.40, s * 0.98);
+    g.add(glint);
+
+    // Faint bioluminescent ring around the socket
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(0.52, 0.04, 8, 18),
+      new THREE.MeshBasicMaterial({
+        color:       0x60c8ff,
+        transparent: true,
+        opacity:     0.55,
+        blending:    THREE.AdditiveBlending,
+        depthWrite:  false,
+      }),
+    );
+    ring.rotation.y = s * Math.PI / 2;
+    ring.position.set(-0.52, 0.28, s * 0.90);
+    g.add(ring);
+  }
+
+  // ── Funnel (siphon, under the head — the jet exhaust) ───────────────
+  const funnel = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.14, 0.26, 0.80, 12),
+    mantleMat,
+  );
+  funnel.rotation.z =  Math.PI / 2 + 0.22;
+  funnel.position.set(-0.35, -0.68, 0);
+  g.add(funnel);
+
+  // ── 8 Arms (around the mouth, segmented for wave animation) ─────────
+  const ARM_COUNT = 8;
+  const ARM_SEG   = 9;
+  const ARM_LEN   = 3.2;
+  const ARM_STEP  = ARM_LEN / ARM_SEG;
+  const arms = [];
+  for (let i = 0; i < ARM_COUNT; i++) {
+    // Distribute around a ring at the mouth; skip the two slots occupied
+    // by long tentacles (top-sides) by offsetting the angle a touch.
+    const ang = (i / ARM_COUNT) * Math.PI * 2 + Math.PI * 0.06;
+    const root = new THREE.Group();
+    root.position.set(
+      -0.85,
+       Math.sin(ang) * 0.38,
+       Math.cos(ang) * 0.56,
+    );
+    // Initial splay — arms fan outward from the mouth
+    root.rotation.y = Math.cos(ang) * 0.25;
+    root.rotation.z = Math.sin(ang) * 0.28;
+
+    let parent = root;
+    const segs = [];
+    for (let j = 0; j < ARM_SEG; j++) {
+      const k   = j / (ARM_SEG - 1);
+      const r   = 0.20 * (1 - k * 0.88) + 0.015;
+      const seg = new THREE.Group();
+      const mesh = new THREE.Mesh(
+        new THREE.SphereGeometry(r, 8, 6),
+        armMat,
+      );
+      mesh.scale.set(1.45, 1.0, 1.0);
+      mesh.position.x = -ARM_STEP * 0.5;
+      seg.add(mesh);
+
+      // Tiny sucker hint on larger segments — two light dots
+      if (j < ARM_SEG - 2 && j % 2 === 0) {
+        const suck = new THREE.Mesh(
+          new THREE.SphereGeometry(r * 0.22, 6, 5),
+          new THREE.MeshBasicMaterial({ color: 0xfff4e4 }),
+        );
+        suck.position.set(-ARM_STEP * 0.5, -r * 0.75, 0);
+        seg.add(suck);
+      }
+
+      parent.add(seg);
+      seg.position.x = j === 0 ? 0 : -ARM_STEP;
+      segs.push(seg);
+      parent = seg;
+    }
+    g.add(root);
+    arms.push({
+      root,
+      segs,
+      phase: i * (Math.PI * 2 / ARM_COUNT) + Math.random() * 0.3,
+      restAngle: ang,
+    });
+  }
+  g.userData.arms = arms;
+
+  // ── 2 Long tentacles with paddle clubs at the tips ──────────────────
+  const tentacles = [];
+  const TENT_SEG  = 16;
+  const TENT_LEN  = 9.6;
+  const TENT_STEP = TENT_LEN / TENT_SEG;
+  for (const s of [-1, 1]) {
+    const root = new THREE.Group();
+    root.position.set(-0.85, -0.05, s * 0.20);
+    root.rotation.y = s * 0.16;
+    root.rotation.z = -0.05;
+
+    let parent = root;
+    const segs = [];
+    for (let j = 0; j < TENT_SEG; j++) {
+      const k   = j / (TENT_SEG - 1);
+      // thin shaft — fattens again slightly near the club
+      const base = 0.14 * (1 - k * 0.92) + 0.022;
+      const bump = Math.exp(-Math.pow((k - 0.92) / 0.10, 2)) * 0.05;
+      const r   = base + bump;
+      const seg = new THREE.Group();
+      const mesh = new THREE.Mesh(
+        new THREE.SphereGeometry(r, 7, 5),
+        armMat,
+      );
+      mesh.scale.set(1.4, 1.0, 1.0);
+      mesh.position.x = -TENT_STEP * 0.5;
+      seg.add(mesh);
+      parent.add(seg);
+      seg.position.x = j === 0 ? 0 : -TENT_STEP;
+      segs.push(seg);
+      parent = seg;
+    }
+
+    // Club (manus) at the tip — paddle-like, glows via clubMat
+    const club = new THREE.Group();
+    const clubBody = new THREE.Mesh(
+      new THREE.SphereGeometry(0.22, 10, 8),
+      clubMat,
+    );
+    clubBody.scale.set(2.0, 0.85, 0.72);
+    clubBody.position.x = -0.22;
+    club.add(clubBody);
+
+    // Two rows of photophore dots on the club
+    for (let r = -1; r <= 1; r += 2) {
+      for (let d = 0; d < 5; d++) {
+        const photo = new THREE.Mesh(
+          new THREE.SphereGeometry(0.045, 6, 5),
+          new THREE.MeshBasicMaterial({
+            color:       0x80e4ff,
+            transparent: true,
+            opacity:     0.85,
+            blending:    THREE.AdditiveBlending,
+            depthWrite:  false,
+          }),
+        );
+        photo.position.set(-0.08 - d * 0.08, r * 0.08, 0.06);
+        club.add(photo);
+      }
+    }
+    club.position.x = -0.04;
+    parent.add(club);
+
+    g.add(root);
+    tentacles.push({
+      root,
+      segs,
+      phase: s > 0 ? 0.0 : Math.PI * 0.75,
+    });
+  }
+  g.userData.tentacles = tentacles;
+
+  // Stash materials + cycling color so onUpdate can pulse them
+  g.userData.mantleMat  = mantleMat;
+  g.userData.armMat     = armMat;
+  g.userData.clubMat    = clubMat;
+  g.userData.chromaColor = chromaColor;
+
+  // Final scale — whale-tier presence
+  g.scale.setScalar(6.4);
   return g;
 }
