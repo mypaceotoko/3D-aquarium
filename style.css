@@ -168,6 +168,28 @@ html, body {
   .species .btn { font-size: 10px; padding: 6px 7px; }
 }
 
+/* ─── Back button (shown inside any aquarium) ───────────────────────── */
+
+.back-btn {
+  position: fixed;
+  top: max(14px, env(safe-area-inset-top));
+  left: max(14px, env(safe-area-inset-left));
+  z-index: 100;
+  font-size: 11px;
+  padding: 7px 12px;
+  background: var(--glass);
+  backdrop-filter: blur(10px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  border: 1px solid var(--glass-br);
+  color: var(--fg-dim);
+  opacity: 0.7;
+  transition: opacity 0.2s ease, background 0.2s ease;
+}
+.back-btn:hover {
+  opacity: 1;
+  background: rgba(12, 48, 68, 0.75);
+}
+
 /* ─── Aquarium Selector ─────────────────────────────────────────────── */
 
 .sel-overlay {
