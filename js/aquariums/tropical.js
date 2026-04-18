@@ -75,8 +75,8 @@ export function launch() {
   // ── Observation system ───────────────────────────────────────────────────
   const obs = initObservation({ camera, orbit, canvas, getCreatures: () => creatures });
 
-  // ── Minimal UI ───────────────────────────────────────────────────────────
-  buildUI();
+  // ── UI ────────────────────────────────────────────────────────────────────
+  buildUI(obs, renderer);
 
   // ── Lifecycle ────────────────────────────────────────────────────────────
   window.addEventListener('resize', () => {
@@ -118,44 +118,70 @@ export function launch() {
 
 function add(scene, c) { scene.add(c.mesh); return c; }
 
-// ─── Minimal UI (back button) ─────────────────────────────────────────────
+// ─── Full UI panel ────────────────────────────────────────────────────────
 
-function buildUI() {
+function buildUI(obs, renderer) {
   const panel = document.createElement('div');
-  panel.style.cssText = [
-    'position:fixed',
-    'bottom:max(18px,env(safe-area-inset-bottom))',
-    'left:50%',
-    'transform:translateX(-50%)',
-    'z-index:100',
-    'display:flex',
-    'gap:8px',
-    'padding:10px',
-    'border-radius:18px',
-    'background:rgba(0,60,80,0.38)',
-    'backdrop-filter:blur(14px)',
-    '-webkit-backdrop-filter:blur(14px)',
-    'border:1px solid rgba(140,220,255,0.18)',
-    'box-shadow:0 8px 36px rgba(0,0,0,0.3)',
-  ].join(';');
+  panel.className = 'ui';
+
+  const body = document.createElement('div');
+  body.className = 'ui-body';
+
+  // Species buttons
+  const sGroup = document.createElement('div');
+  sGroup.className = 'group species';
+  const SPECIES = [
+    { id: 'clownfish',  label: 'クマノミ' },
+    { id: 'neon-tetra', label: 'ネオンテトラ' },
+    { id: 'sea-turtle', label: 'ウミガメ' },
+    { id: 'guppy',      label: 'グッピー' },
+    { id: 'shrimp',     label: '小エビ' },
+    { id: 'seahorse',   label: 'タツノオトシゴ' },
+  ];
+  for (const sp of SPECIES) {
+    const b = document.createElement('button');
+    b.className = 'btn';
+    b.textContent = sp.label;
+    b.addEventListener('click', () => obs.selectSpecies(sp.id));
+    sGroup.appendChild(b);
+  }
+  body.appendChild(sGroup);
+
+  // Controls: brightness + back
+  const cGroup = document.createElement('div');
+  cGroup.className = 'group';
+  const BRIGHT = [{ label: '暗め', v: 0.80 }, { label: '標準', v: 1.35 }, { label: '明るめ', v: 1.90 }];
+  let bIdx = 1;
+  const btnB = document.createElement('button');
+  btnB.className = 'btn';
+  btnB.textContent = `明 ${BRIGHT[bIdx].label}`;
+  btnB.addEventListener('click', () => {
+    bIdx = (bIdx + 1) % BRIGHT.length;
+    renderer.toneMappingExposure = BRIGHT[bIdx].v;
+    btnB.textContent = `明 ${BRIGHT[bIdx].label}`;
+  });
+  cGroup.appendChild(btnB);
 
   const back = document.createElement('button');
+  back.className = 'btn';
   back.textContent = '← 水槽選択';
-  back.style.cssText = [
-    'appearance:none',
-    'border:1px solid rgba(140,220,255,0.18)',
-    'background:rgba(0,30,50,0.55)',
-    'color:#d8f2ff',
-    'padding:8px 14px',
-    'border-radius:12px',
-    'font:inherit',
-    'font-size:12px',
-    'letter-spacing:0.04em',
-    'cursor:pointer',
-    'white-space:nowrap',
-  ].join(';');
   back.addEventListener('click', () => location.reload());
-  panel.appendChild(back);
+  cGroup.appendChild(back);
+  body.appendChild(cGroup);
+
+  panel.appendChild(body);
+
+  const toggle = document.createElement('button');
+  toggle.className = 'btn btn-toggle';
+  toggle.textContent = '▾';
+  toggle.setAttribute('aria-expanded', 'true');
+  toggle.addEventListener('click', () => {
+    const collapsed = panel.classList.toggle('collapsed');
+    toggle.textContent = collapsed ? '▴' : '▾';
+    toggle.setAttribute('aria-expanded', String(!collapsed));
+  });
+  panel.appendChild(toggle);
+
   document.body.appendChild(panel);
 }
 
