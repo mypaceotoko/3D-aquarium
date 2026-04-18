@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Creature } from '../creatures/Creature.js';
+import { initObservation } from '../interaction/observationManager.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Giant Ocean Aquarium — ジャイアントオーシャン水槽
@@ -83,6 +84,9 @@ export function launch() {
 
   addC(new Megalodon());
 
+  // ── Observation system ───────────────────────────────────────────────────
+  const obs = initObservation({ camera, orbit, canvas, getCreatures: () => creatures });
+
   // ── UI ────────────────────────────────────────────────────────────────────
   buildUI();
 
@@ -114,8 +118,8 @@ export function launch() {
     animateWater(waterSurf, time);
     animateParticles(particles, dt);
     for (const c of creatures) c.update(dt, time, state);
-
-    orbit.update();
+    obs.update(dt);
+    if (!obs.isObserving) orbit.update();
     renderer.render(scene, camera);
   }
   loop();

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TANK } from '../scene.js';
 import { Creature } from '../creatures/Creature.js';
+import { initObservation } from '../interaction/observationManager.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tropical aquarium — bright, warm, reef scene
@@ -71,6 +72,9 @@ export function launch() {
   orbit.rotateSpeed    = 0.6;
   orbit.zoomSpeed      = 0.75;
 
+  // ── Observation system ───────────────────────────────────────────────────
+  const obs = initObservation({ camera, orbit, canvas, getCreatures: () => creatures });
+
   // ── Minimal UI ───────────────────────────────────────────────────────────
   buildUI();
 
@@ -105,7 +109,8 @@ export function launch() {
     }
 
     for (const c of creatures) c.update(dt, time, state);
-    orbit.update();
+    obs.update(dt);
+    if (!obs.isObserving) orbit.update();
     renderer.render(scene, camera);
   }
   loop();
