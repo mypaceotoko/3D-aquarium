@@ -26,4 +26,12 @@ export const AQUARIUMS = [
     accent:   '#40c8ff',
     launch:   () => import('./aquariums/ocean.js').then(m => m.launch()),
   },
+  {
+    id:       'sweets',
+    title:    'スイーツアクアリウム',
+    desc:     '海モチーフのお菓子たちが泳ぐ、ちょっと不思議な水槽。たい焼き、金魚ゼリー、シーラカンスモナカ——甘くて可愛い、もう一つの海。',
+    gradient: 'linear-gradient(155deg,#ffd6ec 0%,#b8e4ff 45%,#fff0c8 100%)',
+    accent:   '#ff7aa8',
+    launch:   () => import('./aquariums/sweets.js').then(m => m.launch()),
+  },
 ];
