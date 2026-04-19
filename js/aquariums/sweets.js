@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TANK } from '../scene.js';
 import { Taiyaki } from '../creatures/sweets/Taiyaki.js';
+import { CoelacanthMonaka } from '../creatures/sweets/CoelacanthMonaka.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Sweets Aquarium — pastel, dreamy soda-water scene
@@ -51,8 +52,11 @@ export function launch() {
   // ── Creatures ────────────────────────────────────────────────────────────
   const creatures = [];
   const state = { food: { active: false, position: new THREE.Vector3() } };
-  const counts = isMobile ? { taiyaki: 2 } : { taiyaki: 3 };
+  const counts = isMobile
+    ? { taiyaki: 2, monaka: 1 }
+    : { taiyaki: 3, monaka: 1 };
   for (let i = 0; i < counts.taiyaki; i++) creatures.push(addCreature(scene, new Taiyaki()));
+  for (let i = 0; i < counts.monaka;  i++) creatures.push(addCreature(scene, new CoelacanthMonaka()));
 
   // ── Camera controls ──────────────────────────────────────────────────────
   const orbit = new OrbitControls(camera, canvas);
