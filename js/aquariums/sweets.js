@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TANK } from '../scene.js';
+import { Taiyaki } from '../creatures/sweets/Taiyaki.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Sweets Aquarium — pastel, dreamy soda-water scene
@@ -47,6 +48,12 @@ export function launch() {
   scene.add(sparkles.object);
   const waterSurf = buildWaterSurface(scene);
 
+  // ── Creatures ────────────────────────────────────────────────────────────
+  const creatures = [];
+  const state = { food: { active: false, position: new THREE.Vector3() } };
+  const counts = isMobile ? { taiyaki: 2 } : { taiyaki: 3 };
+  for (let i = 0; i < counts.taiyaki; i++) creatures.push(addCreature(scene, new Taiyaki()));
+
   // ── Camera controls ──────────────────────────────────────────────────────
   const orbit = new OrbitControls(camera, canvas);
   orbit.enableDamping = true;
@@ -86,11 +93,15 @@ export function launch() {
     bubbles.update(dt, time);
     sparkles.update(dt, time);
 
+    for (const c of creatures) c.update(dt, time, state);
+
     orbit.update();
     renderer.render(scene, camera);
   }
   loop();
 }
+
+function addCreature(scene, c) { scene.add(c.mesh); return c; }
 
 // ─── Background (pastel soda-water gradient) ──────────────────────────────
 function makeBgTexture() {
