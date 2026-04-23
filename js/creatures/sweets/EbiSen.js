@@ -24,11 +24,28 @@ export class EbiSen extends Creature {
     this._segments = segments;
     this._phase    = Math.random() * Math.PI * 2;
     this._dartT    = THREE.MathUtils.randFloat(2.5, 5);
+    // Each ebisen belongs to a "flock" (0-2) with a biased waypoint region
+    this._flockId  = Math.floor(Math.random() * 3);
+    this._flickFreq = THREE.MathUtils.randFloat(14, 19);
+  }
+
+  // Bias new wander targets toward this ebisen's flock zone so groups cluster
+  onPickTarget(target) {
+    const flockCenters = [
+      [-10, 2,  5],
+      [  8, 4, -6],
+      [  0, 6,  8],
+    ];
+    const c = flockCenters[this._flockId];
+    target.x = c[0] + THREE.MathUtils.randFloatSpread(10);
+    target.y = THREE.MathUtils.clamp(c[1] + THREE.MathUtils.randFloatSpread(4),
+                                     this.cfg.depthMin, this.cfg.depthMax);
+    target.z = c[2] + THREE.MathUtils.randFloatSpread(8);
   }
 
   onUpdate(dt, time) {
-    // Tail flicks quickly
-    const flick = Math.sin(time * 16 + this._phase) * 0.35 * (0.4 + this.speedNorm * 0.6);
+    // Tail flicks quickly (per-instance tempo)
+    const flick = Math.sin(time * this._flickFreq + this._phase) * 0.35 * (0.4 + this.speedNorm * 0.6);
     this._tail.rotation.y = flick;
 
     // Body segments ripple slightly along length
@@ -36,6 +53,11 @@ export class EbiSen extends Creature {
       const seg = this._segments[i];
       seg.rotation.z = Math.sin(time * 12 + this._phase - i * 0.5) * 0.08 * (0.4 + this.speedNorm);
     }
+
+    // Roll a bit with the tail flick (pari-pari feel)
+    this.mesh.rotation.z = THREE.MathUtils.lerp(
+      this.mesh.rotation.z, flick * 0.3, Math.min(1, dt * 4)
+    );
 
     // Occasional snappy dart: brief speed burst by biasing wander
     this._dartT -= dt;

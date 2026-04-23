@@ -28,8 +28,13 @@ export class CoelacanthMonaka extends Creature {
   onUpdate(dt, time) {
     // Gentle tail sway
     this._tail.rotation.y = Math.sin(time * 1.4 + this._phase) * 0.22;
-    // Slow vertical bob on top of movement
-    this.pos.y += Math.sin(time * 0.6 + this._phase) * 0.004;
+    // Slow vertical dive-and-rise cycle (long period — adds mystique)
+    this.pos.y += Math.sin(time * 0.35 + this._phase) * 0.015;
+    // Subtle pitch — nose tips slightly with the rise/fall
+    const pitch = Math.cos(time * 0.35 + this._phase) * 0.08;
+    this.mesh.rotation.x = THREE.MathUtils.lerp(this.mesh.rotation.x, pitch, Math.min(1, dt * 1.2));
+    // Slow roll (fossil-tilt)
+    this.mesh.rotation.z = Math.sin(time * 0.28 + this._phase * 0.7) * 0.05;
     // Aura breathes (rare-creature shimmer)
     const pulse = 0.35 + 0.25 * Math.sin(time * 0.9 + this._phase);
     this._aura.material.opacity = pulse;

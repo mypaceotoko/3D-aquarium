@@ -22,19 +22,22 @@ export class TakoSen extends Creature {
     });
     this._disc  = disc;
     this._phase = Math.random() * Math.PI * 2;
-    this._spin  = THREE.MathUtils.randFloat(0.4, 0.9) * (Math.random() < 0.5 ? 1 : -1);
-    this._flutterT = THREE.MathUtils.randFloat(4, 10);
+    // More varied spin speeds — some lazy, some brisk
+    this._spin  = THREE.MathUtils.randFloat(0.25, 1.2) * (Math.random() < 0.5 ? 1 : -1);
+    this._flutterT = THREE.MathUtils.randFloat(3, 9);
     this._flutter  = 0;
+    // Tilt preference: each disc has its own resting lean
+    this._leanBase = THREE.MathUtils.randFloat(-0.15, 0.15);
   }
 
   orient(dt) {
-    // Keep cracker flat-ish but lean softly with motion
+    // Keep cracker flat-ish but lean softly with motion + per-instance base lean
     const v = this.vel;
-    const bank = Math.atan2(v.y, Math.hypot(v.x, v.z)) * 0.35;
+    const bank = Math.atan2(v.y, Math.hypot(v.x, v.z)) * 0.45 + this._leanBase;
     this.mesh.rotation.x = THREE.MathUtils.lerp(this.mesh.rotation.x, bank, Math.min(1, dt * 1.6));
     this.mesh.rotation.z = THREE.MathUtils.lerp(
       this.mesh.rotation.z,
-      Math.atan2(-v.x, v.z) * 0.15,
+      Math.atan2(-v.x, v.z) * 0.2,
       Math.min(1, dt * 1.6)
     );
   }

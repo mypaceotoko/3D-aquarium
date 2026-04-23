@@ -20,24 +20,34 @@ export class GoldfishJelly extends Creature {
         facesVelocity: true, reactsToFood: true,
       },
     });
-    this._body       = body;
-    this._tailA      = tailBlade;
-    this._tailB      = tailBladeB;
-    this._phase      = Math.random() * Math.PI * 2;
-    this._bobPhase   = Math.random() * Math.PI * 2;
+    this._body     = body;
+    this._tailA    = tailBlade;
+    this._tailB    = tailBladeB;
+    this._phase    = Math.random() * Math.PI * 2;
+    this._bobPhase = Math.random() * Math.PI * 2;
+    // Individual jiggle profile — no two jellies wobble the same
+    this._jigFreq  = THREE.MathUtils.randFloat(2.6, 3.8);
+    this._jigAmp   = THREE.MathUtils.randFloat(0.038, 0.06);
+    this._bobFreq  = THREE.MathUtils.randFloat(0.85, 1.3);
+    this._bobAmp   = THREE.MathUtils.randFloat(0.008, 0.016);
   }
 
   onUpdate(dt, time) {
     // Ferry softly up & down (extra bob beyond wander)
-    this.pos.y += Math.sin(time * 1.1 + this._bobPhase) * 0.012;
+    this.pos.y += Math.sin(time * this._bobFreq + this._bobPhase) * this._bobAmp;
+
+    // Lateral micro-drift (ジェリーがふわっと横に揺れる)
+    const drift = Math.cos(time * 0.7 + this._phase) * 0.005;
+    this.pos.x += drift * Math.cos(this._phase);
+    this.pos.z += drift * Math.sin(this._phase);
 
     // Jiggle: non-uniform scale wobble on body
-    const wob = Math.sin(time * 3.2 + this._phase);
-    const wob2 = Math.cos(time * 2.5 + this._phase * 0.7);
+    const wob  = Math.sin(time * this._jigFreq + this._phase);
+    const wob2 = Math.cos(time * (this._jigFreq * 0.78) + this._phase * 0.7);
     this._body.scale.set(
-      1.0 + wob * 0.045,
-      1.0 + wob2 * 0.055,
-      1.0 + wob * 0.035
+      1.0 + wob * this._jigAmp,
+      1.0 + wob2 * (this._jigAmp + 0.01),
+      1.0 + wob * (this._jigAmp - 0.01)
     );
 
     // Gauzy tails — two fan blades sway out of phase

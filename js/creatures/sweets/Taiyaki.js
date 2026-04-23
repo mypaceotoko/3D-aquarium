@@ -20,16 +20,27 @@ export class Taiyaki extends Creature {
         facesVelocity: true, reactsToFood: true,
       },
     });
-    this._tail  = tail;
-    this._phase = Math.random() * Math.PI * 2;
-    this._spinT = THREE.MathUtils.randFloat(6, 14);
-    this._spin  = 0;
+    this._tail    = tail;
+    this._phase   = Math.random() * Math.PI * 2;
+    this._spinT   = THREE.MathUtils.randFloat(6, 14);
+    this._spin    = 0;
+    // Per-individual variation so 3 Taiyaki don't move in sync
+    this._wagFreq = THREE.MathUtils.randFloat(6.5, 9.0);
+    this._wagAmp  = THREE.MathUtils.randFloat(0.32, 0.46);
+    this._bobAmp  = THREE.MathUtils.randFloat(0.006, 0.014);
   }
 
   onUpdate(dt, time) {
     // Tail waggle (lateral wag, faster when swimming harder)
-    const waggle = Math.sin(time * 7.5 + this._phase) * 0.38 * (0.4 + this.speedNorm * 0.6);
+    const waggle = Math.sin(time * this._wagFreq + this._phase)
+                   * this._wagAmp * (0.4 + this.speedNorm * 0.6);
     this._tail.rotation.y = waggle;
+
+    // Subtle vertical bob (like fish body dipping as it swims)
+    this.pos.y += Math.sin(time * 2.0 + this._phase * 1.3) * this._bobAmp;
+
+    // Subtle roll as tail wags (tilts body with the swing)
+    this.mesh.rotation.z += (waggle * 0.08 - this.mesh.rotation.z) * Math.min(1, dt * 3);
 
     // Occasional quick in-place spin
     this._spinT -= dt;

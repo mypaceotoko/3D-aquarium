@@ -21,10 +21,15 @@ export class CrabPan extends Creature {
         reactsToFood: true,
       },
     });
-    this._legs   = legs;
-    this._claws  = claws;
-    this._phase  = Math.random() * Math.PI * 2;
+    this._legs    = legs;
+    this._claws   = claws;
+    this._phase   = Math.random() * Math.PI * 2;
     this._sideDir = Math.random() < 0.5 ? 1 : -1;
+    // Per-individual leg tempo and claw sway freq
+    this._legFreq  = THREE.MathUtils.randFloat(12, 17);
+    this._clawFreq = THREE.MathUtils.randFloat(2.8, 4.2);
+    this._hopT     = THREE.MathUtils.randFloat(1.5, 3.5);
+    this._hopY     = 0;
   }
 
   orient(dt) {
@@ -41,17 +46,28 @@ export class CrabPan extends Creature {
   }
 
   onUpdate(dt, time) {
-    // Legs twitch in alternating pairs
-    const tw = Math.sin(time * 14 + this._phase) * 0.55 * (0.35 + this.speedNorm * 0.7);
+    // Legs twitch in alternating pairs (per-instance tempo)
+    const tw = Math.sin(time * this._legFreq + this._phase) * 0.55 * (0.35 + this.speedNorm * 0.7);
     for (let i = 0; i < this._legs.length; i++) {
       const L = this._legs[i];
       const alt = (i % 2 === 0) ? tw : -tw;
       L.rotation.z = L.userData.base + alt * 0.8;
     }
     // Claws bob slightly (threatening... in a goofy way)
-    const cbob = Math.sin(time * 3.5 + this._phase) * 0.18;
+    const cbob = Math.sin(time * this._clawFreq + this._phase) * 0.18;
     this._claws[0].rotation.z = 0.4 + cbob;
     this._claws[1].rotation.z = -0.4 - cbob;
+
+    // Tiny scuttle-hop: brief Y pulse every few seconds
+    this._hopT -= dt;
+    if (this._hopT <= 0) {
+      this._hopT = THREE.MathUtils.randFloat(1.5, 3.5);
+      this._hopY = 0.22;
+    }
+    if (this._hopY > 0.002) {
+      this._hopY *= Math.pow(0.05, dt);
+      this.pos.y += this._hopY * dt * 4;
+    }
   }
 }
 
