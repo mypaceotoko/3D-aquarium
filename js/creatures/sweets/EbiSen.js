@@ -29,8 +29,11 @@ export class EbiSen extends Creature {
     this._flickFreq = THREE.MathUtils.randFloat(14, 19);
   }
 
-  // Bias new wander targets toward this ebisen's flock zone so groups cluster
+  // Bias new wander targets toward this ebisen's flock zone so groups cluster.
+  // NOTE: called from super() before our constructor body runs, so _flockId
+  // may be undefined on the first call — assign lazily.
   onPickTarget(target) {
+    if (this._flockId === undefined) this._flockId = Math.floor(Math.random() * 3);
     const flockCenters = [
       [-10, 2,  5],
       [  8, 4, -6],
