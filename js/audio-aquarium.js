@@ -63,30 +63,30 @@ export function initAquariumAudio({ theme = 'tropical', getCreatures } = {}) {
     baseSrc.buffer = buf; baseSrc.loop = true;
     const baseLP = ctx.createBiquadFilter();
     baseLP.type = 'lowpass';
-    baseLP.frequency.value = theme === 'tropical' ? 340 : 220;
+    baseLP.frequency.value = theme === 'ocean' ? 220 : 340;
     const baseG = ctx.createGain();
-    baseG.gain.value = theme === 'tropical' ? 0.20 : 0.38;
+    baseG.gain.value = theme === 'ocean' ? 0.38 : 0.18;
     baseSrc.connect(baseLP).connect(baseG).connect(master);
     baseSrc.start();
 
     // ── Swell layer with slow LFO ───────────────────────────────────────
     const swellSrc = ctx.createBufferSource();
     swellSrc.buffer = buf; swellSrc.loop = true;
-    swellSrc.detune.value = theme === 'tropical' ? 500 : 650;
+    swellSrc.detune.value = theme === 'ocean' ? 650 : 500;
     const swellHP = ctx.createBiquadFilter();
     swellHP.type = 'highpass';
-    swellHP.frequency.value = theme === 'tropical' ? 260 : 140;
+    swellHP.frequency.value = theme === 'ocean' ? 140 : 260;
     const swellLP = ctx.createBiquadFilter();
     swellLP.type = 'lowpass';
-    swellLP.frequency.value = theme === 'tropical' ? 920 : 580;
+    swellLP.frequency.value = theme === 'ocean' ? 580 : 920;
     const swellG = ctx.createGain();
-    swellG.gain.value = theme === 'tropical' ? 0.08 : 0.13;
+    swellG.gain.value = theme === 'ocean' ? 0.13 : 0.08;
     swellSrc.connect(swellHP).connect(swellLP).connect(swellG).connect(master);
     swellSrc.start();
 
     const lfo = _makeSineLfo(ctx, 20);
     const lfoG = ctx.createGain();
-    lfoG.gain.value = theme === 'tropical' ? 0.04 : 0.06;
+    lfoG.gain.value = theme === 'ocean' ? 0.06 : 0.04;
     lfo.connect(lfoG).connect(swellG.gain);
     lfo.start();
 
@@ -110,6 +110,50 @@ export function initAquariumAudio({ theme = 'tropical', getCreatures } = {}) {
       shimLfoG.gain.value = 0.02;
       shimLfo.connect(shimLfoG).connect(themeG.gain);
       shimLfo.start();
+
+    } else if (theme === 'sweets') {
+      // Sugar-sparkle layer: bright, airy, sparkling — two detuned bandpass voices
+      const shimSrc = ctx.createBufferSource();
+      shimSrc.buffer = buf; shimSrc.loop = true;
+      shimSrc.detune.value = 3200;
+      const shimBP = ctx.createBiquadFilter();
+      shimBP.type = 'bandpass';
+      shimBP.frequency.value = 1800;
+      shimBP.Q.value = 0.7;
+      themeG = ctx.createGain();
+      themeG.gain.value = 0.06;
+      shimSrc.connect(shimBP).connect(themeG).connect(master);
+      shimSrc.start();
+
+      const shimLfo = _makeSineLfo(ctx, 6);
+      const shimLfoG = ctx.createGain();
+      shimLfoG.gain.value = 0.03;
+      shimLfo.connect(shimLfoG).connect(themeG.gain);
+      shimLfo.start();
+
+      // Music-box-ish twinkling: a soft pluck every few seconds
+      const twinkleG = ctx.createGain();
+      twinkleG.gain.value = 0.12;
+      twinkleG.connect(master);
+      const scheduleTwinkle = () => {
+        if (!ctx) return;
+        const now = ctx.currentTime;
+        const notes = [659, 784, 880, 988, 1175, 1318]; // E5 G5 A5 B5 D6 E6 (pentatonic-ish)
+        const f = notes[Math.floor(Math.random() * notes.length)];
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.value = f;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.0001, now);
+        g.gain.exponentialRampToValueAtTime(0.15, now + 0.015);
+        g.gain.exponentialRampToValueAtTime(0.0001, now + 0.9);
+        osc.connect(g).connect(twinkleG);
+        osc.start(now); osc.stop(now + 1.0);
+        // Reschedule
+        const delay = 1.2 + Math.random() * 2.8;
+        setTimeout(scheduleTwinkle, delay * 1000);
+      };
+      setTimeout(scheduleTwinkle, 400);
 
     } else {
       // Ocean: slow deep whale-drone, gain driven by LFO + creature speed
@@ -138,7 +182,7 @@ export function initAquariumAudio({ theme = 'tropical', getCreatures } = {}) {
     motSrc.detune.value = -300;
     const motLP = ctx.createBiquadFilter();
     motLP.type = 'lowpass';
-    motLP.frequency.value = theme === 'tropical' ? 420 : 290;
+    motLP.frequency.value = theme === 'ocean' ? 290 : 420;
     motionG = ctx.createGain();
     motionG.gain.value = 0;
     motSrc.connect(motLP).connect(motionG).connect(master);
@@ -171,9 +215,11 @@ export function initAquariumAudio({ theme = 'tropical', getCreatures } = {}) {
   function triggerBubble() {
     if (!started || !ctx) return;
     const t  = ctx.currentTime;
-    const f0 = theme === 'tropical'
-      ? 500 + Math.random() * 700
-      : 360 + Math.random() * 520;
+    const f0 = theme === 'ocean'
+      ? 360 + Math.random() * 520
+      : theme === 'sweets'
+        ? 700 + Math.random() * 900
+        : 500 + Math.random() * 700;
     const osc = ctx.createOscillator();
     osc.type = 'sine';
     osc.frequency.setValueAtTime(f0, t);
@@ -197,7 +243,7 @@ export function initAquariumAudio({ theme = 'tropical', getCreatures } = {}) {
     for (let i = 0; i < len; i++) d[i] = (Math.random()*2-1) * (1 - i/len);
     const src = ctx.createBufferSource(); src.buffer = buf;
     const lp  = ctx.createBiquadFilter(); lp.type = 'lowpass';
-    lp.frequency.setValueAtTime(theme === 'tropical' ? 2400 : 1700, t);
+    lp.frequency.setValueAtTime(theme === 'ocean' ? 1700 : 2400, t);
     lp.frequency.exponentialRampToValueAtTime(420, t + 0.30);
     const g = ctx.createGain();
     g.gain.setValueAtTime(0.0001, t);
@@ -207,7 +253,7 @@ export function initAquariumAudio({ theme = 'tropical', getCreatures } = {}) {
     src.start(t); src.stop(t + 0.48);
 
     const osc = ctx.createOscillator(); osc.type = 'sine';
-    osc.frequency.setValueAtTime(theme === 'tropical' ? 860 : 680, t);
+    osc.frequency.setValueAtTime(theme === 'ocean' ? 680 : 860, t);
     osc.frequency.exponentialRampToValueAtTime(130, t + 0.44);
     const og = ctx.createGain();
     og.gain.setValueAtTime(0.0001, t);
@@ -221,7 +267,7 @@ export function initAquariumAudio({ theme = 'tropical', getCreatures } = {}) {
     if (!started || !ctx) return;
     const t   = ctx.currentTime;
     const osc = ctx.createOscillator(); osc.type = 'triangle';
-    osc.frequency.setValueAtTime(theme === 'tropical' ? 300 : 210, t);
+    osc.frequency.setValueAtTime(theme === 'ocean' ? 210 : 300, t);
     osc.frequency.exponentialRampToValueAtTime(75, t + 0.18);
     const g = ctx.createGain();
     g.gain.setValueAtTime(0.0001, t);
@@ -253,9 +299,11 @@ export function initAquariumAudio({ theme = 'tropical', getCreatures } = {}) {
 
     if (time > nextBubbleAt) {
       triggerBubble();
-      const interval = theme === 'tropical'
-        ? 1.5 + Math.random() * 2.5
-        : 2.5 + Math.random() * 4.5;
+      const interval = theme === 'ocean'
+        ? 2.5 + Math.random() * 4.5
+        : theme === 'sweets'
+          ? 0.9 + Math.random() * 2.0
+          : 1.5 + Math.random() * 2.5;
       nextBubbleAt = time + interval;
     }
   }
