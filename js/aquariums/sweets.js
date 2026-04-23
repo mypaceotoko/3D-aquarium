@@ -7,6 +7,8 @@ import { CrabPan } from '../creatures/sweets/CrabPan.js';
 import { GoldfishJelly } from '../creatures/sweets/GoldfishJelly.js';
 import { TakoSen } from '../creatures/sweets/TakoSen.js';
 import { EbiSen } from '../creatures/sweets/EbiSen.js';
+import { initObservation } from '../interaction/observationManager.js';
+import { initAquariumAudio } from '../audio-aquarium.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Sweets Aquarium — pastel, dreamy soda-water scene
@@ -78,6 +80,87 @@ export function launch() {
   orbit.rotateSpeed    = 0.6;
   orbit.zoomSpeed      = 0.75;
 
+  // ── Observation system ───────────────────────────────────────────────────
+  const obs = initObservation({ camera, orbit, canvas, getCreatures: () => creatures });
+
+  // ── Audio ─────────────────────────────────────────────────────────────────
+  const audio = initAquariumAudio({ theme: 'sweets', getCreatures: () => creatures });
+
+  // ── Food system (砂糖粒・チョコチップ・ラムネ粒) ─────────────────────────
+  const foodList = [];
+  const F_GRAVITY = 0.40, F_DRAG = 0.55, F_EAT_R = 1.2;
+  const FOOD_PALETTES = [
+    { color: 0xfff0c8, emissive: 0xffe8a0 }, // 砂糖粒
+    { color: 0x8a5a38, emissive: 0x4a2818 }, // チョコチップ
+    { color: 0xffa8cc, emissive: 0xff88b8 }, // ラムネ粒（ピンク）
+    { color: 0xa8d8ff, emissive: 0x88c8ff }, // ラムネ粒（水色）
+  ];
+
+  function refreshFoodTarget() {
+    state.food.active = foodList.length > 0;
+    if (foodList.length > 0) state.food.position.copy(foodList[0].mesh.position);
+  }
+
+  function dropFood(point) {
+    const pal = FOOD_PALETTES[Math.floor(Math.random() * FOOD_PALETTES.length)];
+    const m = new THREE.Mesh(
+      new THREE.SphereGeometry(0.14, 8, 6),
+      new THREE.MeshStandardMaterial({
+        color: pal.color, roughness: 0.4, metalness: 0.06,
+        emissive: pal.emissive, emissiveIntensity: 0.6,
+      }),
+    );
+    m.position.copy(point);
+    scene.add(m);
+    foodList.push({
+      mesh: m,
+      vel: new THREE.Vector3((Math.random()-.5)*.18, -.22, (Math.random()-.5)*.18),
+      life: 12,
+    });
+    audio.triggerFeed();
+    refreshFoodTarget();
+  }
+
+  function updateFood(dt) {
+    for (let i = foodList.length - 1; i >= 0; i--) {
+      const f = foodList[i];
+      f.life -= dt;
+      f.vel.y -= F_GRAVITY * dt;
+      f.vel.multiplyScalar(Math.pow(F_DRAG, dt));
+      f.mesh.position.addScaledVector(f.vel, dt);
+      f.mesh.rotation.y += dt * 1.2;
+      f.mesh.rotation.x += dt * 0.9;
+      let eaten = false;
+      for (const c of creatures) {
+        if (!c.cfg.reactsToFood) continue;
+        if (c.pos.distanceTo(f.mesh.position) < F_EAT_R) {
+          audio.triggerChomp(); eaten = true; break;
+        }
+      }
+      if (!eaten && (f.mesh.position.y < TANK.floorY + 0.25 || f.life <= 0)) eaten = true;
+      if (eaten) {
+        scene.remove(f.mesh);
+        f.mesh.geometry.dispose(); f.mesh.material.dispose();
+        foodList.splice(i, 1);
+      }
+    }
+    refreshFoodTarget();
+  }
+
+  // ── UI ────────────────────────────────────────────────────────────────────
+  const uiPanel = buildUI(obs, renderer, audio, () => {
+    dropFood(new THREE.Vector3(
+      THREE.MathUtils.randFloatSpread(TANK.maxX * 0.7),
+      TANK.maxY - 2,
+      THREE.MathUtils.randFloatSpread(TANK.maxZ * 0.7),
+    ));
+  });
+
+  let _lastMove = performance.now();
+  ['pointermove', 'pointerdown', 'keydown'].forEach(evt =>
+    window.addEventListener(evt, () => { _lastMove = performance.now(); uiPanel.classList.remove('dim'); }, { passive: true })
+  );
+
   // ── Lifecycle ────────────────────────────────────────────────────────────
   window.addEventListener('resize', () => {
     renderer.setSize(window.innerWidth, window.innerHeight, false);
@@ -106,11 +189,122 @@ export function launch() {
     sparkles.update(dt, time);
 
     for (const c of creatures) c.update(dt, time, state);
-
-    orbit.update();
+    updateFood(dt);
+    obs.update(dt);
+    audio.update(dt, time);
+    if (!obs.isObserving) orbit.update();
+    if (performance.now() - _lastMove > 5000) uiPanel.classList.add('dim');
     renderer.render(scene, camera);
   }
   loop();
+}
+
+// ─── UI panel (species / controls) ────────────────────────────────────────
+function buildUI(obs, renderer, audio, onFeed) {
+  const panel = document.createElement('div');
+  panel.className = 'ui';
+
+  const body = document.createElement('div');
+  body.className = 'ui-body';
+
+  const SPECIES = [
+    { id: 'taiyaki',             label: 'たい焼き' },
+    { id: 'coelacanth-monaka',   label: 'シーラカンスモナカ' },
+    { id: 'crab-pan',            label: 'カニパン' },
+    { id: 'goldfish-jelly',      label: '金魚ゼリー' },
+    { id: 'tako-sen',            label: 'タコせん' },
+    { id: 'ebi-sen',             label: 'えびせん' },
+  ];
+  const sGroup = document.createElement('div');
+  sGroup.className = 'group species';
+  for (const sp of SPECIES) {
+    const b = document.createElement('button');
+    b.className = 'btn';
+    b.textContent = sp.label;
+    b.addEventListener('click', () => obs.selectSpecies(sp.id));
+    sGroup.appendChild(b);
+  }
+  body.appendChild(sGroup);
+
+  const cGroup = document.createElement('div');
+  cGroup.className = 'group';
+
+  const BRIGHT = [{ label: '暗め', v: 0.85 }, { label: '標準', v: 1.30 }, { label: '明るめ', v: 1.80 }];
+  let bIdx = 1;
+  const btnB = document.createElement('button');
+  btnB.className = 'btn';
+  btnB.textContent = `明 ${BRIGHT[bIdx].label}`;
+  btnB.addEventListener('click', () => {
+    bIdx = (bIdx + 1) % BRIGHT.length;
+    renderer.toneMappingExposure = BRIGHT[bIdx].v;
+    btnB.textContent = `明 ${BRIGHT[bIdx].label}`;
+  });
+  cGroup.appendChild(btnB);
+
+  let soundOn = false;
+  const btnSound = document.createElement('button');
+  btnSound.className = 'btn';
+  btnSound.textContent = '音 OFF';
+  btnSound.setAttribute('aria-pressed', 'false');
+  btnSound.addEventListener('click', () => {
+    if (soundOn) {
+      audio.disable(); soundOn = false;
+      btnSound.textContent = '音 OFF';
+      btnSound.setAttribute('aria-pressed', 'false');
+    } else if (audio.enable()) {
+      soundOn = true;
+      btnSound.textContent = '音 ON';
+      btnSound.setAttribute('aria-pressed', 'true');
+    }
+  });
+  cGroup.appendChild(btnSound);
+
+  const pickAmbient = () => obs.selectSpecies(SPECIES[Math.floor(Math.random() * SPECIES.length)].id);
+  let ambientOn = true;
+  let ambientTimer = setInterval(pickAmbient, 15000);
+  pickAmbient();
+  const btnAmbient = document.createElement('button');
+  btnAmbient.className = 'btn';
+  btnAmbient.textContent = '鑑賞 ON';
+  btnAmbient.setAttribute('aria-pressed', 'true');
+  btnAmbient.addEventListener('click', () => {
+    ambientOn = !ambientOn;
+    if (ambientOn) {
+      pickAmbient();
+      ambientTimer = setInterval(pickAmbient, 15000);
+      btnAmbient.textContent = '鑑賞 ON';
+      btnAmbient.setAttribute('aria-pressed', 'true');
+    } else {
+      clearInterval(ambientTimer);
+      btnAmbient.textContent = '鑑賞 OFF';
+      btnAmbient.setAttribute('aria-pressed', 'false');
+    }
+  });
+  cGroup.appendChild(btnAmbient);
+
+  const btnFeed = document.createElement('button');
+  btnFeed.className = 'btn accent';
+  btnFeed.textContent = '餌';
+  btnFeed.title = '砂糖粒・チョコチップ・ラムネ粒を落とす';
+  btnFeed.addEventListener('click', () => onFeed?.());
+  cGroup.appendChild(btnFeed);
+  body.appendChild(cGroup);
+
+  panel.appendChild(body);
+
+  const toggle = document.createElement('button');
+  toggle.className = 'btn btn-toggle';
+  toggle.textContent = '▾';
+  toggle.setAttribute('aria-expanded', 'true');
+  toggle.addEventListener('click', () => {
+    const collapsed = panel.classList.toggle('collapsed');
+    toggle.textContent = collapsed ? '▴' : '▾';
+    toggle.setAttribute('aria-expanded', String(!collapsed));
+  });
+  panel.appendChild(toggle);
+
+  document.body.appendChild(panel);
+  return panel;
 }
 
 function addCreature(scene, c) { scene.add(c.mesh); return c; }
