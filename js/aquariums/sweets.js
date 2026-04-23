@@ -6,6 +6,7 @@ import { CoelacanthMonaka } from '../creatures/sweets/CoelacanthMonaka.js';
 import { CrabPan } from '../creatures/sweets/CrabPan.js';
 import { GoldfishJelly } from '../creatures/sweets/GoldfishJelly.js';
 import { TakoSen } from '../creatures/sweets/TakoSen.js';
+import { EbiSen } from '../creatures/sweets/EbiSen.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Sweets Aquarium — pastel, dreamy soda-water scene
@@ -56,13 +57,14 @@ export function launch() {
   const creatures = [];
   const state = { food: { active: false, position: new THREE.Vector3() } };
   const counts = isMobile
-    ? { taiyaki: 2, monaka: 1, crab: 2, jelly: 3, takosen: 2 }
-    : { taiyaki: 3, monaka: 1, crab: 3, jelly: 5, takosen: 4 };
+    ? { taiyaki: 2, monaka: 1, crab: 2, jelly: 3, takosen: 2, ebisen: 6 }
+    : { taiyaki: 3, monaka: 1, crab: 3, jelly: 5, takosen: 4, ebisen: 10 };
   for (let i = 0; i < counts.taiyaki;  i++) creatures.push(addCreature(scene, new Taiyaki()));
   for (let i = 0; i < counts.monaka;   i++) creatures.push(addCreature(scene, new CoelacanthMonaka()));
   for (let i = 0; i < counts.crab;     i++) creatures.push(addCreature(scene, new CrabPan()));
   for (let i = 0; i < counts.jelly;    i++) creatures.push(addCreature(scene, new GoldfishJelly(i)));
   for (let i = 0; i < counts.takosen;  i++) creatures.push(addCreature(scene, new TakoSen()));
+  for (let i = 0; i < counts.ebisen;   i++) creatures.push(addCreature(scene, new EbiSen()));
 
   // ── Camera controls ──────────────────────────────────────────────────────
   const orbit = new OrbitControls(camera, canvas);
