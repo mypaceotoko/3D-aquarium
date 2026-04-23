@@ -50,15 +50,20 @@ export class EbiSen extends Creature {
 function makeEbiSenMesh() {
   const g = new THREE.Group();
 
-  const shellMat = new THREE.MeshStandardMaterial({
-    color: 0xffb488, roughness: 0.7, metalness: 0.04,
-    emissive: 0x602818, emissiveIntensity: 0.15,
+  const shellMat = new THREE.MeshPhysicalMaterial({
+    color: 0xffb088, roughness: 0.55, metalness: 0.05,
+    emissive: 0x602818, emissiveIntensity: 0.22,
+    clearcoat: 0.55, clearcoatRoughness: 0.3,
+    sheen: 0.4, sheenColor: 0xffd0a8,
   });
-  const paleMat = new THREE.MeshStandardMaterial({
-    color: 0xffddc0, roughness: 0.75,
+  const paleMat = new THREE.MeshPhysicalMaterial({
+    color: 0xffdcbc, roughness: 0.55, metalness: 0.04,
+    emissive: 0x3a1808, emissiveIntensity: 0.18,
+    clearcoat: 0.5, clearcoatRoughness: 0.35,
   });
   const charMat = new THREE.MeshStandardMaterial({
-    color: 0xa84828, roughness: 0.85,
+    color: 0x9a3818, roughness: 0.78,
+    emissive: 0x2a0808, emissiveIntensity: 0.12,
   });
 
   // Curved shrimp body — stack of small segments, each slightly rotated to curve

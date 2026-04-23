@@ -48,12 +48,15 @@ export class Taiyaki extends Creature {
 function makeTaiyakiMesh() {
   const g = new THREE.Group();
 
-  const waffleMat = new THREE.MeshStandardMaterial({
-    color: 0xdc9a5c, roughness: 0.72, metalness: 0.04,
-    emissive: 0x3a2008, emissiveIntensity: 0.18,
+  const waffleMat = new THREE.MeshPhysicalMaterial({
+    color: 0xe0a468, roughness: 0.62, metalness: 0.02,
+    emissive: 0x3a2008, emissiveIntensity: 0.22,
+    clearcoat: 0.3, clearcoatRoughness: 0.6,
+    sheen: 0.4, sheenColor: 0xffd8a0,
   });
   const crustMat = new THREE.MeshStandardMaterial({
-    color: 0xb07038, roughness: 0.82, metalness: 0.02,
+    color: 0xb07038, roughness: 0.78, metalness: 0.02,
+    emissive: 0x2a1008, emissiveIntensity: 0.1,
   });
 
   // Main body — flattened ellipsoid (fish profile)
@@ -127,6 +130,21 @@ function makeTaiyakiMesh() {
     an.position.set(-0.05, -0.02, 0.45 * s);
     an.scale.set(1.4, 0.9, 0.15);
     g.add(an);
+  }
+
+  // Sugar sparkle dust on the top
+  const sugarMat = new THREE.MeshStandardMaterial({
+    color: 0xfff4dc, roughness: 0.25,
+    emissive: 0xfff4dc, emissiveIntensity: 0.35,
+  });
+  for (let i = 0; i < 7; i++) {
+    const sp = new THREE.Mesh(new THREE.SphereGeometry(0.04, 6, 5), sugarMat);
+    sp.position.set(
+      -0.7 + Math.random() * 1.6,
+      0.55 + Math.random() * 0.2,
+      (Math.random() - 0.5) * 0.3
+    );
+    g.add(sp);
   }
 
   g.scale.setScalar(1.1);

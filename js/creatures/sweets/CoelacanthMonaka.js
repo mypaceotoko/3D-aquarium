@@ -41,9 +41,11 @@ function makeMonakaMesh() {
   const g = new THREE.Group();
 
   // Two wafer shells (pale monaka skin)
-  const waferMat = new THREE.MeshStandardMaterial({
-    color: 0xf4e2bc, roughness: 0.85, metalness: 0.02,
-    emissive: 0x3a2810, emissiveIntensity: 0.08,
+  const waferMat = new THREE.MeshPhysicalMaterial({
+    color: 0xf8e6c2, roughness: 0.78, metalness: 0.02,
+    emissive: 0x3a2810, emissiveIntensity: 0.12,
+    sheen: 0.5, sheenColor: 0xfff0c8,
+    clearcoat: 0.15, clearcoatRoughness: 0.7,
   });
   const darkEdge = new THREE.MeshStandardMaterial({
     color: 0xc8a878, roughness: 0.9,
@@ -124,14 +126,23 @@ function makeMonakaMesh() {
   }
   g.add(tail);
 
-  // Rare aura — subtle soft sphere around body
+  // Rare aura — subtle soft sphere around body (warmer gold shimmer)
   const auraMat = new THREE.MeshBasicMaterial({
-    color: 0xffe8a8, transparent: true, opacity: 0.4,
+    color: 0xffe0a0, transparent: true, opacity: 0.35,
     blending: THREE.AdditiveBlending, depthWrite: false,
   });
-  const aura = new THREE.Mesh(new THREE.SphereGeometry(2.0, 18, 14), auraMat);
-  aura.scale.set(1.2, 0.65, 0.85);
+  const aura = new THREE.Mesh(new THREE.SphereGeometry(2.2, 20, 14), auraMat);
+  aura.scale.set(1.25, 0.7, 0.9);
   g.add(aura);
+
+  // Inner soft glow (second smaller aura for depth)
+  const innerAuraMat = new THREE.MeshBasicMaterial({
+    color: 0xfff8e0, transparent: true, opacity: 0.22,
+    blending: THREE.AdditiveBlending, depthWrite: false,
+  });
+  const innerAura = new THREE.Mesh(new THREE.SphereGeometry(1.6, 16, 12), innerAuraMat);
+  innerAura.scale.set(1.2, 0.65, 0.85);
+  g.add(innerAura);
 
   g.scale.setScalar(1.25);
   return { mesh: g, tail, aura };

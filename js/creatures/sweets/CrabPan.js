@@ -58,9 +58,11 @@ export class CrabPan extends Creature {
 function makeCrabPanMesh() {
   const g = new THREE.Group();
 
-  const breadMat = new THREE.MeshStandardMaterial({
-    color: 0xf4c080, roughness: 0.82, metalness: 0,
-    emissive: 0x3a1f08, emissiveIntensity: 0.12,
+  const breadMat = new THREE.MeshPhysicalMaterial({
+    color: 0xf8c888, roughness: 0.75, metalness: 0,
+    emissive: 0x3a1f08, emissiveIntensity: 0.16,
+    sheen: 0.35, sheenColor: 0xffe0a8,
+    clearcoat: 0.1, clearcoatRoughness: 0.8,
   });
   const sugarMat = new THREE.MeshStandardMaterial({
     color: 0xfff6e0, roughness: 0.6,
@@ -155,6 +157,19 @@ function makeCrabPanMesh() {
       g.add(hip);
       legs.push(hip);
     }
+  }
+
+  // Sugar crystals scattered on the shell (very small)
+  const crystalMat = new THREE.MeshStandardMaterial({
+    color: 0xfff4dc, roughness: 0.25,
+    emissive: 0xfff4dc, emissiveIntensity: 0.25,
+  });
+  for (let i = 0; i < 9; i++) {
+    const ang = Math.random() * Math.PI * 2;
+    const r   = Math.random() * 0.95;
+    const sp  = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 5), crystalMat);
+    sp.position.set(Math.cos(ang) * r, 0.55, Math.sin(ang) * r * 0.75);
+    g.add(sp);
   }
 
   g.scale.setScalar(1.05);

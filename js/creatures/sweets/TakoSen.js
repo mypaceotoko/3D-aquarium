@@ -66,12 +66,14 @@ function makeTakoSenMesh() {
   g.add(disc);
 
   // Base cracker — very flat cylinder with slightly warped edges
-  const crackerMat = new THREE.MeshStandardMaterial({
-    color: 0xf8c878, roughness: 0.85, metalness: 0.02,
-    emissive: 0x3a2008, emissiveIntensity: 0.12,
+  const crackerMat = new THREE.MeshPhysicalMaterial({
+    color: 0xfacc88, roughness: 0.78, metalness: 0.02,
+    emissive: 0x3a2008, emissiveIntensity: 0.15,
+    sheen: 0.3, sheenColor: 0xffe0b0,
   });
   const charMat = new THREE.MeshStandardMaterial({
-    color: 0xa05028, roughness: 0.9,
+    color: 0x8a3818, roughness: 0.88,
+    emissive: 0x2a0808, emissiveIntensity: 0.12,
   });
 
   const base = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.1, 0.12, 22), crackerMat);
@@ -93,8 +95,8 @@ function makeTakoSenMesh() {
 
   // Imprinted octopus silhouette — darker flattened shape on top
   const inkMat = new THREE.MeshStandardMaterial({
-    color: 0x5a2018, roughness: 0.8,
-    emissive: 0x2a0808, emissiveIntensity: 0.1,
+    color: 0x4a1808, roughness: 0.72,
+    emissive: 0x2a0808, emissiveIntensity: 0.18,
   });
   // Head bulb
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.42, 14, 10), inkMat);

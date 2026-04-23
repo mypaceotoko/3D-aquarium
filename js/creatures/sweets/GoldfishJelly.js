@@ -60,16 +60,20 @@ function makeJellyMesh(paletteIdx) {
   // Transparent gelatin material — uses transmission for glass-like refraction
   const jellyMat = new THREE.MeshPhysicalMaterial({
     color: pal.shell,
-    transmission: 0.85,
-    thickness: 0.8,
-    roughness: 0.18,
+    transmission: 0.92,
+    thickness: 1.0,
+    roughness: 0.12,
     metalness: 0,
     transparent: true,
-    opacity: 0.75,
-    ior: 1.33,
-    clearcoat: 0.6,
-    clearcoatRoughness: 0.2,
-    emissive: new THREE.Color(pal.fluid).multiplyScalar(0.08),
+    opacity: 0.68,
+    ior: 1.38,
+    clearcoat: 0.85,
+    clearcoatRoughness: 0.15,
+    sheen: 0.3,
+    sheenColor: new THREE.Color(pal.shell).multiplyScalar(1.3),
+    emissive: new THREE.Color(pal.fluid).multiplyScalar(0.12),
+    attenuationColor: new THREE.Color(pal.fluid),
+    attenuationDistance: 3.5,
   });
 
   // The "goldfish" shape suspended inside — solid core, tinted
