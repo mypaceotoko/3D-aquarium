@@ -7,6 +7,7 @@ import { Pirarucu }     from './creatures/Pirarucu.js';
 import { Trilobite }    from './creatures/Trilobite.js';
 import { GiantIsopod }  from './creatures/GiantIsopod.js';
 import { Leviathan }    from './creatures/Leviathan.js';
+import { Tamoto }       from './creatures/Tamoto.js';
 import { initControls } from './controls.js';
 import { initAudio }    from './audio.js';
 import { createObservationUI } from './interaction/observationUI.js';
@@ -77,6 +78,9 @@ for (let i = 0; i < counts.isopod; i++)     creatures.push(addToScene(new GiantI
 
 // Leviathan — always exactly one, regardless of mobile/desktop
 creatures.push(addToScene(new Leviathan({ castShadow: !isMobile })));
+
+// 田本 — exactly one masked swimmer, loitering near the seafloor
+creatures.push(addToScene(new Tamoto({ castShadow: !isMobile })));
 
 function addToScene(c) { scene.add(c.mesh); return c; }
 
