@@ -15,6 +15,7 @@ const INFO = {
   guppy:        { label: 'グッピー',           desc: '鮮やかな尾びれを持つ人気の熱帯魚' },
   shrimp:       { label: '小エビ',             desc: '水槽の掃除屋。敏捷な動きで底を走る' },
   seahorse:     { label: 'タツノオトシゴ',      desc: 'オスが子どもを産む、海の不思議な魚' },
+  'garden-eel': { label: 'チンアナゴ',          desc: '砂から顔を出してゆらゆら揺れる、愛嬌たっぷりの穴子の仲間' },
   // ocean
   dolphin:      { label: 'イルカ',             desc: '高い知能を持つ海の賢者。群れで暮らす' },
   orca:         { label: 'シャチ',             desc: '海の頂点捕食者。高度な社会性と知性を持つ' },
