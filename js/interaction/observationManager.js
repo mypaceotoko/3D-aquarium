@@ -15,6 +15,7 @@ const HIT_R = {
   // sweets
   taiyaki: 1.8, 'coelacanth-monaka': 2.6, 'crab-pan': 1.6,
   'goldfish-jelly': 1.5, 'tako-sen': 1.6, 'ebi-sen': 0.9,
+  'mr-utsugi': 1.0,
 };
 
 // ─── Per-species follow distance ─────────────────────────────────────────────
@@ -27,6 +28,7 @@ const FOLLOW_D = {
   squid: 58, innocence: 3,
   taiyaki: 4, 'coelacanth-monaka': 5, 'crab-pan': 3.5,
   'goldfish-jelly': 3.5, 'tako-sen': 4, 'ebi-sen': 2.5,
+  'mr-utsugi': 2.6,
 };
 
 // ─── Main entry point ────────────────────────────────────────────────────────
