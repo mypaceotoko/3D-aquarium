@@ -69,7 +69,9 @@ export function launch() {
 
   // ── Creatures ────────────────────────────────────────────────────────────
   const creatures = [];
-  const state     = { food: { active: false, position: new THREE.Vector3() } };
+  // `creatures` is the live array — Innocence reads it via `state.creatures`
+  // to detect nearby predators and trigger panic-flee reactions.
+  const state     = { food: { active: false, position: new THREE.Vector3() }, creatures };
   const addC = (c) => { scene.add(c.mesh); creatures.push(c); };
 
   const nDolphin = isMobile ? 3 : 5;
@@ -87,6 +89,9 @@ export function launch() {
 
   // Giant squid — the biggest showpiece of the tank
   addC(new GiantSquid());
+
+  // Innocence — 謎のスーツ姿の遊泳者（スマホを見ながら泳ぐ）
+  addC(new Innocence());
 
   // ── Observation system ───────────────────────────────────────────────────
   const obs = initObservation({ camera, orbit, canvas, getCreatures: () => creatures });
@@ -503,6 +508,7 @@ function buildUI(obs, renderer, audio, onFeed) {
     { id: 'shark',     label: 'サメ' },
     { id: 'megalodon', label: 'メガロドン' },
     { id: 'squid',     label: 'ダイオウイカ' },
+    { id: 'innocence', label: 'イノセンス' },
   ];
   for (const sp of SPECIES) {
     const b = document.createElement('button');
@@ -1591,5 +1597,719 @@ function makeGiantSquidMesh() {
 
   // Final scale — whale-tier presence
   g.scale.setScalar(6.4);
+  return g;
+}
+
+// ─── Innocence (スーツ姿の遊泳者) ─────────────────────────────────────────
+// A fully suited businessman swimming horizontally through the tank while
+// staring at his smartphone. Wet-hair clearcoat, wool-suit roughness,
+// polished leather shoes, glowing phone screen, ID badge on a lanyard,
+// thin earphone cable tracing from ear to device.
+
+const PREDATOR_SPECIES = new Set(['megalodon', 'shark', 'orca']);
+// Species-specific "about to get eaten" radius — megalodon's mouth is huge.
+const PREDATOR_DANGER_R = { megalodon: 28, orca: 16, shark: 11 };
+
+class Innocence extends OceanCreature {
+  constructor() {
+    super({
+      species: 'innocence',
+      mesh: makeInnocenceMesh(),
+      cfg: {
+        speed: 1.7, maxAccel: 1.2, turnRate: 1.1,
+        depthMin: OTANK.floorY + 6, depthMax: OTANK.maxY - 3,
+        wanderMin: 10, wanderMax: 22, wallMargin: 12,
+        facesVelocity: true,
+      },
+    });
+    this._phase       = Math.random() * Math.PI * 2;
+    this._baseSpeed   = 1.7;
+    this._baseAccel   = 1.2;
+    this._baseTurn    = 1.1;
+
+    // Comical state machine:
+    //   'normal'  — calm swim, eyes on phone
+    //   'panic'   — flee from nearby predator, arms flailing
+    //   'relief'  — brief breath-catch after a panic escape
+    //   'spin'    — somersault gag while still staring at phone
+    //   'fumble'  — nearly drops the phone, scrambles to grab it
+    this._stateName   = 'normal';
+    this._stateT      = 0;
+    this._nextGagT    = 7 + Math.random() * 9;
+    this._spinRot     = 0;
+    this._fleeDir     = new THREE.Vector3(1, 0, 0);
+    this._dangerVec   = new THREE.Vector3();
+  }
+
+  // While panicking, wander targets flee from the last known danger vector.
+  onPickTarget(target) {
+    if (this._stateName === 'panic') {
+      target.copy(this.pos).addScaledVector(this._fleeDir, 28);
+      target.x = THREE.MathUtils.clamp(target.x, OTANK.minX + this.cfg.wallMargin, OTANK.maxX - this.cfg.wallMargin);
+      target.z = THREE.MathUtils.clamp(target.z, OTANK.minZ + this.cfg.wallMargin, OTANK.maxZ - this.cfg.wallMargin);
+      target.y = THREE.MathUtils.clamp(target.y, this.cfg.depthMin, this.cfg.depthMax);
+    }
+  }
+
+  _enterPanic(dir) {
+    this._stateName = 'panic';
+    this._stateT    = 2.0 + Math.random() * 1.6;
+    this._fleeDir.copy(dir).normalize();
+    this.cfg.speed    = this._baseSpeed * 3.1;
+    this.cfg.maxAccel = this._baseAccel * 3.0;
+    this.cfg.turnRate = this._baseTurn  * 2.6;
+    // Re-seek a flee target immediately
+    this.target.copy(this.pos).addScaledVector(this._fleeDir, 28);
+    this.target.x = THREE.MathUtils.clamp(this.target.x, OTANK.minX + this.cfg.wallMargin, OTANK.maxX - this.cfg.wallMargin);
+    this.target.z = THREE.MathUtils.clamp(this.target.z, OTANK.minZ + this.cfg.wallMargin, OTANK.maxZ - this.cfg.wallMargin);
+    this.target.y = THREE.MathUtils.clamp(this.target.y, this.cfg.depthMin, this.cfg.depthMax);
+    this.wanderT  = this._stateT;
+  }
+
+  _enterRelief() {
+    this._stateName = 'relief';
+    this._stateT    = 0.9 + Math.random() * 0.6;
+    this.cfg.speed    = this._baseSpeed * 0.35;
+    this.cfg.maxAccel = this._baseAccel;
+    this.cfg.turnRate = this._baseTurn;
+  }
+
+  _enterNormal() {
+    this._stateName = 'normal';
+    this._stateT    = 0;
+    this.cfg.speed    = this._baseSpeed;
+    this.cfg.maxAccel = this._baseAccel;
+    this.cfg.turnRate = this._baseTurn;
+  }
+
+  _pickGag() {
+    const r = Math.random();
+    if (r < 0.45) {
+      this._stateName = 'spin';
+      this._stateT    = 1.1 + Math.random() * 0.5;
+      this._spinRot   = 0;
+    } else if (r < 0.80) {
+      this._stateName = 'fumble';
+      this._stateT    = 0.9 + Math.random() * 0.4;
+    } else {
+      // Sudden double-take — realizes where he is, then shrugs it off
+      this._stateName = 'fumble';   // reuse the wobble state
+      this._stateT    = 0.6;
+    }
+    this._nextGagT = 8 + Math.random() * 12;
+  }
+
+  onUpdate(dt, time, state) {
+    const ud = this.mesh.userData;
+    const t  = time * 1.2 + this._phase;
+
+    // ── Predator scan (every frame; short list, cheap) ────────────────
+    let nearestPred = null, nearestD = Infinity;
+    const list = state?.creatures;
+    if (list) {
+      for (const c of list) {
+        if (!PREDATOR_SPECIES.has(c.species)) continue;
+        const d = c.pos.distanceTo(this.pos);
+        if (d < nearestD) { nearestD = d; nearestPred = c; }
+      }
+    }
+    if (nearestPred) {
+      const threshold = PREDATOR_DANGER_R[nearestPred.species] ?? 14;
+      if (nearestD < threshold && this._stateName !== 'panic') {
+        this._dangerVec.subVectors(this.pos, nearestPred.pos);
+        if (this._dangerVec.lengthSq() < 1e-4) this._dangerVec.set(0, 1, 0);
+        this._enterPanic(this._dangerVec);
+      }
+    }
+
+    // ── State countdown + transitions ────────────────────────────────
+    this._stateT -= dt;
+    if (this._stateName === 'panic' && this._stateT <= 0) this._enterRelief();
+    else if (this._stateName === 'relief' && this._stateT <= 0) this._enterNormal();
+    else if ((this._stateName === 'spin' || this._stateName === 'fumble') && this._stateT <= 0) this._enterNormal();
+
+    if (this._stateName === 'normal') {
+      this._nextGagT -= dt;
+      if (this._nextGagT <= 0) this._pickGag();
+    }
+
+    // ── Base swim motion (calm) ───────────────────────────────────────
+    const kick = Math.sin(t * 2.6);
+    let hipBase = -0.04, hipAmp = 0.22, kneeBase = 0.10, kneeAmp = 0.28;
+    let freeShoulderZ = -0.18, freeShoulderZAmp = 0.12, freeShoulderXAmp = 0.10;
+    let freeElbowY = 0.20, freeElbowYAmp = 0.10;
+    let phoneShoulderX = -0.05, phoneShoulderXAmp = 0.03;
+    let headZ = -0.30, headZAmp = 0.02, headYAmp = 0.025;
+    let bodyRollExtra = 0, bodyPitchExtra = 0, bodyYawExtra = 0, bodyBob = 0.25;
+
+    // ── State-specific overrides ─────────────────────────────────────
+    if (this._stateName === 'panic') {
+      // Wild flutter kick + flailing arms + wide-eyed head snap back
+      const p = time * 9.5;
+      hipBase = 0.0;
+      hipAmp  = 0.55;
+      kneeAmp = 0.65;
+      // Both arms flail like a cartoon — even the phone arm
+      freeShoulderZ     = -0.9 + Math.sin(p) * 0.8;
+      freeShoulderZAmp  = 0.0;
+      freeShoulderXAmp  = 0.0;
+      ud.shoulderFree && (ud.shoulderFree.rotation.z = freeShoulderZ);
+      ud.shoulderFree && (ud.shoulderFree.rotation.x = Math.sin(p * 1.3 + 1.1) * 0.9);
+      if (ud.elbowFree) ud.elbowFree.rotation.y = 0.4 + Math.sin(p * 1.7) * 0.9;
+      phoneShoulderX    = -1.1 + Math.sin(p * 1.2 + 0.4) * 0.5;
+      phoneShoulderXAmp = 0.0;
+      // Head snaps up and looks backward toward the predator
+      headZ    = 0.35 + Math.sin(p * 0.8) * 0.10;
+      headZAmp = 0.0;
+      headYAmp = 0.0;
+      if (ud.head) ud.head.rotation.y = Math.sin(p * 0.6) * 0.6;
+      // Body streaks forward pitched down + wobbling
+      bodyPitchExtra = -0.25 + Math.sin(p * 0.9) * 0.12;
+      bodyRollExtra  = Math.sin(p * 1.4) * 0.18;
+      bodyBob        = 0.05;
+      // Eye-glint isn't controllable, but screen dims (distracted)
+      if (ud.screenMat) ud.screenMat.emissiveIntensity = 0.25;
+    } else if (this._stateName === 'relief') {
+      // Heaving breath — slow wobble, head still tilted up, phone forgotten
+      hipAmp   = 0.08;
+      kneeAmp  = 0.12;
+      headZ    = 0.05;
+      headZAmp = 0.0;
+      if (ud.head) ud.head.rotation.y = 0;
+      // Chest heave
+      bodyBob = 0.08 + Math.sin(time * 4.2) * 0.22;
+      bodyPitchExtra = Math.sin(time * 3.8) * 0.05;
+      if (ud.screenMat) ud.screenMat.emissiveIntensity = 0.6;
+    } else if (this._stateName === 'spin') {
+      // Full-body somersault while still staring at phone — classic gag
+      this._spinRot += dt * Math.PI * 2.2;
+      bodyPitchExtra = this._spinRot;
+      // Limbs tuck in
+      hipAmp   = 0.08;
+      kneeBase = 0.25;
+      kneeAmp  = 0.10;
+      freeShoulderZ    = -0.1;
+      freeShoulderZAmp = 0.05;
+      if (ud.screenMat) ud.screenMat.emissiveIntensity = 1.4;
+    } else if (this._stateName === 'fumble') {
+      // Head twitches, free arm windmills, phone arm almost drops
+      const p = time * 7.0;
+      headZ = -0.30 + Math.sin(p * 1.3) * 0.35;
+      headYAmp = 0.0;
+      if (ud.head) ud.head.rotation.y = Math.sin(p * 1.8) * 0.45;
+      freeShoulderZ = -0.2 + Math.sin(p) * 0.7;
+      freeShoulderZAmp = 0.0;
+      freeShoulderXAmp = 0.0;
+      if (ud.elbowFree) ud.elbowFree.rotation.y = 0.6 + Math.sin(p * 2.3) * 0.9;
+      phoneShoulderX = -0.05 + Math.sin(p * 1.5 + 0.7) * 0.45;
+      phoneShoulderXAmp = 0.0;
+      bodyRollExtra = Math.sin(p * 0.9) * 0.15;
+      if (ud.screenMat) ud.screenMat.emissiveIntensity = 1.7 + Math.sin(p * 4) * 0.5;
+    }
+
+    // ── Apply (with guards so state-override branches don't double up) ─
+    if (ud.hipL)  ud.hipL.rotation.z  = hipBase + kick * hipAmp;
+    if (ud.hipR)  ud.hipR.rotation.z  = hipBase - kick * hipAmp;
+    if (ud.kneeL) ud.kneeL.rotation.z = kneeBase - kick * kneeAmp;
+    if (ud.kneeR) ud.kneeR.rotation.z = kneeBase + kick * kneeAmp;
+
+    if (this._stateName === 'normal' || this._stateName === 'relief' || this._stateName === 'spin') {
+      if (ud.shoulderFree) {
+        ud.shoulderFree.rotation.z = freeShoulderZ + Math.sin(t * 0.8)      * freeShoulderZAmp;
+        ud.shoulderFree.rotation.x =                  Math.cos(t * 0.75)   * freeShoulderXAmp;
+      }
+      if (ud.elbowFree) ud.elbowFree.rotation.y = freeElbowY + Math.sin(t * 0.9 + 0.6) * freeElbowYAmp;
+      if (ud.shoulderPhone) ud.shoulderPhone.rotation.x = phoneShoulderX + Math.sin(t * 0.5) * phoneShoulderXAmp;
+    }
+
+    if (this._stateName === 'normal' || this._stateName === 'spin') {
+      if (ud.head) {
+        ud.head.rotation.z = headZ + Math.sin(t * 0.55) * headZAmp;
+        ud.head.rotation.y =         Math.sin(t * 0.38) * headYAmp;
+      }
+    }
+
+    if (ud.badge) {
+      const badgeAmp = this._stateName === 'panic' ? 0.9 : (this._stateName === 'fumble' ? 0.6 : 0.18);
+      ud.badge.rotation.z = Math.sin(t * 1.4) * badgeAmp - 0.05;
+      ud.badge.rotation.x = Math.cos(t * 1.2) * badgeAmp * 0.6;
+    }
+
+    if (ud.hairTufts) {
+      for (let i = 0; i < ud.hairTufts.length; i++) {
+        const h = ud.hairTufts[i];
+        h.rotation.z = h.userData.rz0 + Math.sin(t * 1.8 + i * 0.7) * 0.08;
+      }
+    }
+
+    if (this._stateName === 'normal' && ud.screenMat) {
+      ud.screenMat.emissiveIntensity = 1.25 + Math.sin(time * 2.4) * 0.25;
+    }
+
+    // ── Body-level motion ────────────────────────────────────────────
+    this.mesh.rotation.z = -this.turnSignal * 0.22 + Math.sin(t * 0.35) * 0.025 + bodyRollExtra;
+    this.mesh.rotation.x =  Math.sin(t * 0.28) * 0.030 + bodyPitchExtra;
+    this.mesh.rotation.y += bodyYawExtra;
+    this.mesh.position.y =  this.pos.y + Math.sin(t * 0.45) * bodyBob;
+  }
+}
+
+function makeInnocenceMesh() {
+  const g = new THREE.Group();
+
+  // ── Materials ────────────────────────────────────────────────────────
+  const skinMat = new THREE.MeshPhysicalMaterial({
+    color: 0xdcb293, roughness: 0.58, metalness: 0.0,
+    clearcoat: 0.25, clearcoatRoughness: 0.55,
+    sheen: 0.35, sheenColor: new THREE.Color(0xffe4d2), sheenRoughness: 0.5,
+  });
+  const hairMat = new THREE.MeshPhysicalMaterial({
+    color: 0x0e0c0a, roughness: 0.32, metalness: 0.05,
+    clearcoat: 0.85, clearcoatRoughness: 0.18,            // wet-hair gloss
+  });
+  const suitMat = new THREE.MeshPhysicalMaterial({
+    color: 0x0a0b11, roughness: 0.58, metalness: 0.04,
+    clearcoat: 0.18, clearcoatRoughness: 0.55,
+    sheen: 0.50, sheenColor: new THREE.Color(0x30384a), sheenRoughness: 0.7,
+  });
+  const shirtMat = new THREE.MeshPhysicalMaterial({
+    color: 0xf2f1ec, roughness: 0.64, metalness: 0.0,
+    clearcoat: 0.10, clearcoatRoughness: 0.7,
+  });
+  const shoeMat = new THREE.MeshPhysicalMaterial({
+    color: 0x05060a, roughness: 0.22, metalness: 0.08,
+    clearcoat: 0.95, clearcoatRoughness: 0.08,            // polished leather
+  });
+  const phoneBodyMat = new THREE.MeshPhysicalMaterial({
+    color: 0x0a0b10, roughness: 0.16, metalness: 0.88,
+    clearcoat: 0.85, clearcoatRoughness: 0.10,
+  });
+  const screenMat = new THREE.MeshStandardMaterial({
+    color: 0x6a8fbc, roughness: 0.08, metalness: 0.0,
+    emissive: new THREE.Color(0x4a78c8), emissiveIntensity: 1.3,
+  });
+  const badgeMat = new THREE.MeshPhysicalMaterial({
+    color: 0xf6f6f2, roughness: 0.45, metalness: 0.02,
+    clearcoat: 0.55, clearcoatRoughness: 0.25,
+  });
+  const lanyardMat = new THREE.MeshStandardMaterial({
+    color: 0x1c2734, roughness: 0.75, metalness: 0.0,
+  });
+  const cableMat = new THREE.MeshStandardMaterial({
+    color: 0xe8e8e6, roughness: 0.55, metalness: 0.0,
+  });
+  const eyeWhiteMat = new THREE.MeshStandardMaterial({
+    color: 0xfbf6ee, roughness: 0.30, metalness: 0.0,
+  });
+  const pupilMat = new THREE.MeshBasicMaterial({ color: 0x05060a });
+  const lipMat = new THREE.MeshStandardMaterial({
+    color: 0x8a4a44, roughness: 0.55,
+  });
+
+  // Convention: +X = forward (head direction), +Y = up (his back),
+  // character is face-down-horizontal. Head sits at +X, feet trail at -X.
+
+  // ── Torso (suit jacket) ──────────────────────────────────────────────
+  // Use a tapered box-like sphere for the chest
+  const torso = new THREE.Mesh(new THREE.SphereGeometry(0.46, 18, 14), suitMat);
+  torso.scale.set(1.60, 0.80, 1.05);
+  torso.position.set(-0.10, -0.02, 0);
+  g.add(torso);
+
+  // Lower back / waistline — slightly narrower
+  const waist = new THREE.Mesh(new THREE.SphereGeometry(0.40, 14, 10), suitMat);
+  waist.scale.set(1.00, 0.68, 0.95);
+  waist.position.set(-0.90, -0.05, 0);
+  g.add(waist);
+
+  // White shirt V at the collar — peeks out of the open jacket
+  const shirtV = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 10), shirtMat);
+  shirtV.scale.set(0.85, 0.35, 0.90);
+  shirtV.position.set(0.30, 0.22, 0);
+  g.add(shirtV);
+
+  // Open shirt collar points (two small lapels)
+  for (const s of [-1, 1]) {
+    const col = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.22, 4), shirtMat);
+    col.rotation.z =  Math.PI / 2;
+    col.rotation.x =  s * 0.35;
+    col.position.set(0.36, 0.18, s * 0.14);
+    g.add(col);
+  }
+
+  // Jacket lapels — dark peaked lapels angled inward from the collar
+  for (const s of [-1, 1]) {
+    const lap = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.58, 4), suitMat);
+    lap.rotation.z =  Math.PI / 2;
+    lap.rotation.x =  s * 0.55;
+    lap.position.set(0.10, 0.12, s * 0.24);
+    g.add(lap);
+  }
+
+  // ── Neck ─────────────────────────────────────────────────────────────
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.15, 0.24, 12), skinMat);
+  neck.rotation.z =  Math.PI / 2;
+  neck.position.set(0.50, 0.04, 0);
+  g.add(neck);
+
+  // ── Head group (pivots on neck for look-down pose) ──────────────────
+  const head = new THREE.Group();
+  head.position.set(0.62, 0.04, 0);
+  g.add(head);
+  g.userData.head = head;
+
+  // Skull
+  const skull = new THREE.Mesh(new THREE.SphereGeometry(0.24, 20, 16), skinMat);
+  skull.scale.set(1.05, 1.08, 0.98);
+  head.add(skull);
+
+  // Jawline — slightly narrower chin
+  const jaw = new THREE.Mesh(new THREE.SphereGeometry(0.19, 14, 10), skinMat);
+  jaw.scale.set(0.85, 0.55, 0.95);
+  jaw.position.set(0.12, -0.14, 0);
+  head.add(jaw);
+
+  // Ears
+  for (const s of [-1, 1]) {
+    const ear = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), skinMat);
+    ear.scale.set(0.55, 1.15, 0.75);
+    ear.position.set(-0.05, 0.02, s * 0.23);
+    head.add(ear);
+  }
+
+  // Nose
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.12, 5), skinMat);
+  nose.rotation.z = -Math.PI / 2;
+  nose.position.set(0.22, -0.02, 0);
+  head.add(nose);
+
+  // Brow ridges (eyebrows) — concentrated brow for intent gaze
+  for (const s of [-1, 1]) {
+    const brow = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.018, 0.09),
+      new THREE.MeshStandardMaterial({ color: 0x0c0a08, roughness: 0.5 }));
+    brow.rotation.y =  s * 0.12;
+    brow.position.set(0.18, 0.09, s * 0.10);
+    head.add(brow);
+  }
+
+  // Eyes (looking slightly down toward the phone)
+  for (const s of [-1, 1]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.035, 10, 8), eyeWhiteMat);
+    eye.position.set(0.195, 0.04, s * 0.095);
+    head.add(eye);
+    const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.022, 10, 8), pupilMat);
+    pupil.position.set(0.220, 0.028, s * 0.095);
+    head.add(pupil);
+    // Tiny specular glint — makes eyes feel alive
+    const glint = new THREE.Mesh(new THREE.SphereGeometry(0.007, 6, 5),
+      new THREE.MeshBasicMaterial({ color: 0xffffff }));
+    glint.position.set(0.235, 0.034, s * 0.090);
+    head.add(glint);
+  }
+
+  // Mouth — small slightly parted focus-mouth
+  const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.012, 0.055), lipMat);
+  mouth.position.set(0.22, -0.10, 0);
+  head.add(mouth);
+
+  // ── Wet spiky hair — a ring of flattened tufts on the crown ─────────
+  const hairTufts = [];
+  // Scalp cap
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.245, 18, 12), hairMat);
+  cap.scale.set(1.02, 0.72, 1.02);
+  cap.position.set(-0.02, 0.10, 0);
+  head.add(cap);
+  // Front fringe — wet strands pushed forward and up
+  const tuftDefs = [
+    { x:  0.14, y: 0.22, z:  0.02, rx: -0.20, rz:  0.45, s: 1.0 },
+    { x:  0.12, y: 0.26, z: -0.11, rx: -0.10, rz:  0.35, s: 0.85 },
+    { x:  0.12, y: 0.26, z:  0.13, rx: -0.30, rz:  0.55, s: 0.85 },
+    { x:  0.03, y: 0.31, z:  0.00, rx:  0.00, rz:  0.15, s: 1.05 },
+    { x:  0.05, y: 0.29, z: -0.17, rx:  0.15, rz:  0.25, s: 0.80 },
+    { x:  0.05, y: 0.29, z:  0.17, rx: -0.15, rz:  0.25, s: 0.80 },
+    { x: -0.08, y: 0.30, z:  0.00, rx:  0.10, rz: -0.08, s: 0.95 },
+    { x: -0.12, y: 0.26, z: -0.14, rx:  0.22, rz: -0.20, s: 0.80 },
+    { x: -0.12, y: 0.26, z:  0.14, rx: -0.22, rz: -0.20, s: 0.80 },
+    { x: -0.20, y: 0.20, z:  0.00, rx:  0.30, rz: -0.35, s: 0.75 },
+  ];
+  for (const td of tuftDefs) {
+    const tuft = new THREE.Mesh(
+      new THREE.ConeGeometry(0.052, 0.20 * td.s, 5),
+      hairMat,
+    );
+    tuft.rotation.x = td.rx;
+    tuft.rotation.z = td.rz;
+    tuft.position.set(td.x, td.y, td.z);
+    tuft.userData.rz0 = td.rz;
+    head.add(tuft);
+    hairTufts.push(tuft);
+  }
+  g.userData.hairTufts = hairTufts;
+
+  // ── ID badge on lanyard — hangs from neck, sways in the current ─────
+  const badge = new THREE.Group();
+  badge.position.set(0.40, -0.12, 0);
+  g.add(badge);
+  g.userData.badge = badge;
+  // Lanyard strings (two thin cords going up to the back of the neck)
+  for (const s of [-1, 1]) {
+    const cord = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.32, 5), lanyardMat);
+    cord.rotation.z = -s * 0.12;
+    cord.position.set(-0.02, 0.16, s * 0.05);
+    badge.add(cord);
+  }
+  // Badge card
+  const card = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.12, 0.012), badgeMat);
+  card.position.set(0.0, 0.0, 0);
+  badge.add(card);
+  // Blue header stripe on the badge
+  const cardHdr = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.035, 0.013),
+    new THREE.MeshStandardMaterial({ color: 0x2a5a9a, roughness: 0.5 }));
+  cardHdr.position.set(0.0, 0.042, 0);
+  badge.add(cardHdr);
+  // Text-ish detail lines
+  for (let i = 0; i < 2; i++) {
+    const line = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.008, 0.013),
+      new THREE.MeshStandardMaterial({ color: 0x555555, roughness: 0.7 }));
+    line.position.set(-0.01, -0.005 - i * 0.022, 0);
+    badge.add(line);
+  }
+
+  // ── Arms ─────────────────────────────────────────────────────────────
+  // Right arm (his right = -Z side) extends forward holding the phone.
+  // Left arm drifts free.
+  const armRadius = 0.085;
+
+  // Helper to build a 2-segment arm (shoulder → elbow → wrist → hand).
+  // Returns { shoulder, elbow } pivots.
+  function buildArm(sideZ, mode) {
+    const shoulder = new THREE.Group();
+    shoulder.position.set(0.34, 0.08, sideZ * 0.32);
+    g.add(shoulder);
+
+    // Upper arm — suit sleeve
+    const upper = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.095, 0.085, 0.50, 10), suitMat,
+    );
+    upper.rotation.z = Math.PI / 2;
+    upper.position.x = 0.22;
+    shoulder.add(upper);
+
+    // Sleeve cuff ring — slightly darker band
+    const cuff = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.088, 0.088, 0.05, 10),
+      new THREE.MeshPhysicalMaterial({ color: 0x05060a, roughness: 0.5 }),
+    );
+    cuff.rotation.z = Math.PI / 2;
+    cuff.position.x = 0.47;
+    shoulder.add(cuff);
+
+    // Elbow pivot
+    const elbow = new THREE.Group();
+    elbow.position.set(0.50, 0, 0);
+    shoulder.add(elbow);
+
+    if (mode === 'phone') {
+      // Forearm bends inward toward center (elbow rotation.y swings
+      // forearm across the chest to meet the other hand at the phone).
+      elbow.rotation.y = -sideZ * 1.05;
+      elbow.rotation.z = -0.35;
+    } else {
+      elbow.rotation.y = -sideZ * 0.40;
+      elbow.rotation.z = -0.15;
+    }
+
+    // Shirt cuff (white) — peeks out between jacket and hand
+    const shirtCuff = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.082, 0.082, 0.05, 8), shirtMat,
+    );
+    shirtCuff.rotation.z = Math.PI / 2;
+    shirtCuff.position.x = 0.04;
+    elbow.add(shirtCuff);
+
+    // Forearm — skin-tone (rolled-up sleeve feel)? Actually suited:
+    // keep dark sleeve, shorter visible wrist
+    const forearm = new THREE.Mesh(
+      new THREE.CylinderGeometry(armRadius, 0.088, 0.46, 10), suitMat,
+    );
+    forearm.rotation.z = Math.PI / 2;
+    forearm.position.x = 0.29;
+    elbow.add(forearm);
+
+    // Wrist — small skin ring
+    const wrist = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.075, 0.075, 0.04, 8), skinMat,
+    );
+    wrist.rotation.z = Math.PI / 2;
+    wrist.position.x = 0.52;
+    elbow.add(wrist);
+
+    // Hand — palm-down grip
+    const hand = new THREE.Mesh(
+      new THREE.BoxGeometry(0.17, 0.07, 0.11), skinMat,
+    );
+    hand.position.set(0.60, -0.01, 0);
+    elbow.add(hand);
+
+    // Fingers — subtle bumps for grip silhouette
+    for (let i = 0; i < 4; i++) {
+      const finger = new THREE.Mesh(
+        new THREE.BoxGeometry(0.06, 0.03, 0.022), skinMat,
+      );
+      finger.position.set(0.70, -0.028, -0.04 + i * 0.025);
+      elbow.add(finger);
+    }
+
+    return { shoulder, elbow, hand };
+  }
+
+  // His right arm (negative Z) holds the phone
+  const rightArm = buildArm(-1, 'phone');
+  g.userData.shoulderPhone = rightArm.shoulder;
+
+  // Phone — parented to the hand so it moves with the arm
+  const phone = new THREE.Group();
+  phone.position.set(0.62, 0.05, 0.02);
+  // Tilt so screen faces the user's (character's) eyes
+  phone.rotation.z =  0.20;
+  phone.rotation.y =  0.30;
+  rightArm.elbow.add(phone);
+
+  const phoneBody = new THREE.Mesh(
+    new THREE.BoxGeometry(0.30, 0.014, 0.15), phoneBodyMat,
+  );
+  phone.add(phoneBody);
+  // Screen — slightly inset, emissive so it glows in the water
+  const screen = new THREE.Mesh(
+    new THREE.BoxGeometry(0.26, 0.004, 0.13), screenMat,
+  );
+  screen.position.y = 0.010;
+  phone.add(screen);
+  // Tiny dark camera dot
+  const cam = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.010, 0.010, 0.006, 8),
+    new THREE.MeshStandardMaterial({ color: 0x101010, roughness: 0.3, metalness: 0.8 }),
+  );
+  cam.position.set(-0.12, -0.009, -0.05);
+  phone.add(cam);
+  g.userData.screenMat = screenMat;
+
+  // His left arm (positive Z) drifts free
+  const leftArm = buildArm(+1, 'free');
+  g.userData.shoulderFree = leftArm.shoulder;
+  g.userData.elbowFree    = leftArm.elbow;
+
+  // ── Legs — horizontal swim pose, flutter-kick animated ──────────────
+  function buildLeg(sideZ) {
+    const hip = new THREE.Group();
+    hip.position.set(-1.20, -0.08, sideZ * 0.13);
+    hip.rotation.y = Math.PI;            // thigh points -X (trailing)
+    g.add(hip);
+
+    // Thigh — wool trouser
+    const thigh = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.135, 0.115, 0.70, 10), suitMat,
+    );
+    thigh.rotation.z = Math.PI / 2;
+    thigh.position.x = 0.35;
+    hip.add(thigh);
+
+    const knee = new THREE.Group();
+    knee.position.set(0.70, 0, 0);
+    hip.add(knee);
+
+    // Shin — continues the trouser
+    const shin = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.115, 0.095, 0.68, 10), suitMat,
+    );
+    shin.rotation.z = Math.PI / 2;
+    shin.position.x = 0.34;
+    knee.add(shin);
+
+    // Trouser hem — slight flare
+    const hem = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.115, 0.100, 0.06, 10), suitMat,
+    );
+    hem.rotation.z = Math.PI / 2;
+    hem.position.x = 0.66;
+    knee.add(hem);
+
+    // Shoe — polished leather, pointed toe
+    const shoe = new THREE.Mesh(
+      new THREE.SphereGeometry(0.13, 12, 8), shoeMat,
+    );
+    shoe.scale.set(1.85, 0.65, 0.85);
+    shoe.position.set(0.84, -0.04, 0);
+    knee.add(shoe);
+
+    // Shoe sole hint — darker thin slab underneath
+    const sole = new THREE.Mesh(
+      new THREE.BoxGeometry(0.30, 0.018, 0.14),
+      new THREE.MeshStandardMaterial({ color: 0x2a1c12, roughness: 0.6 }),
+    );
+    sole.position.set(0.84, -0.095, 0);
+    knee.add(sole);
+
+    return { hip, knee };
+  }
+
+  const legL = buildLeg(-1); g.userData.hipL = legL.hip; g.userData.kneeL = legL.knee;
+  const legR = buildLeg(+1); g.userData.hipR = legR.hip; g.userData.kneeR = legR.knee;
+
+  // ── Earphones & cable ────────────────────────────────────────────────
+  // Earbud in the left (visible) ear — white-ish capsule
+  const budMat = new THREE.MeshPhysicalMaterial({
+    color: 0xf0f0ec, roughness: 0.35, metalness: 0.05, clearcoat: 0.6,
+  });
+  const bud = new THREE.Mesh(new THREE.SphereGeometry(0.028, 8, 6), budMat);
+  bud.position.set(-0.04, 0.02, 0.24);
+  head.add(bud);
+  // Cable — a curved tube from ear down toward the phone
+  const cablePts = [];
+  const start = new THREE.Vector3(0.58, -0.02, 0.22);   // near ear in world frame
+  const mid   = new THREE.Vector3(0.45, -0.20, 0.12);
+  const near  = new THREE.Vector3(0.58, -0.10, 0.00);
+  const end   = new THREE.Vector3(0.68, -0.06, -0.04);  // into phone area
+  for (let i = 0; i <= 18; i++) {
+    const k = i / 18;
+    const p = new THREE.Vector3();
+    // quadratic-ish blend across the 4 points
+    if (k < 0.5) {
+      const u = k / 0.5;
+      p.lerpVectors(start, mid, u);
+    } else {
+      const u = (k - 0.5) / 0.5;
+      p.lerpVectors(mid, near, u).lerp(end, u * 0.55);
+    }
+    // Add gentle droop
+    p.y += Math.sin(k * Math.PI) * -0.06;
+    cablePts.push(p);
+  }
+  const cableCurve = new THREE.CatmullRomCurve3(cablePts);
+  const cable = new THREE.Mesh(
+    new THREE.TubeGeometry(cableCurve, 32, 0.006, 5, false),
+    cableMat,
+  );
+  g.add(cable);
+
+  // ── A few rising bubbles from the face — adds life, reads as breath ─
+  const bubbleMat = new THREE.MeshPhysicalMaterial({
+    color: 0xcfe8ff, roughness: 0.04, metalness: 0.0,
+    transmission: 0.9, transparent: true, opacity: 0.55,
+    clearcoat: 1.0, clearcoatRoughness: 0.05,
+  });
+  for (let i = 0; i < 4; i++) {
+    const b = new THREE.Mesh(
+      new THREE.SphereGeometry(0.03 + Math.random() * 0.025, 8, 6),
+      bubbleMat,
+    );
+    b.position.set(0.80 + i * 0.08, 0.18 + i * 0.10, -0.05 + Math.random() * 0.10);
+    g.add(b);
+  }
+
+  // Final scale — deliberately tiny; he reads as a comically small figure
+  // lost in a giant ocean tank, which makes the near-misses with sharks
+  // and megalodon feel all the more perilous.
+  g.scale.setScalar(0.55);
   return g;
 }

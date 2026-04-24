@@ -23,6 +23,7 @@ const INFO = {
   shark:        { label: 'サメ',               desc: '4億年、姿を変えない完全なる狩人' },
   megalodon:    { label: 'メガロドン',          desc: '体長18mに達したとされる太古の超巨大ザメ' },
   squid:        { label: 'ダイオウイカ',         desc: '深海に棲む最大級の無脊椎動物。巨大な眼と長い触腕を持つ' },
+  innocence:    { label: 'イノセンス',           desc: 'スーツ姿のままスマホ片手に遊泳する謎の存在。時々サメに追われては大慌て' },
   // sweets
   taiyaki:             { label: 'たい焼き',         desc: '水中を泳ぐ甘い主役。尾びれをパタパタ、時々くるっと旋回' },
   'coelacanth-monaka': { label: 'シーラカンスモナカ', desc: 'レアな古代菓子。金色のオーラを纏いゆっくり漂う' },
