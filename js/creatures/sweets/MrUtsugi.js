@@ -34,6 +34,17 @@ export class MrUtsugi extends Creature {
     this._parts = parts;
     this._phase = Math.random() * Math.PI * 2;
     this._chaseTarget = null; // 現在追いかけているスイーツ生物
+    this._chompT  = 0;        // もぐもぐ演出タイマー（>0 のあいだアニメ）
+    this._joyT    = 0;        // 食べた直後のうれしさ（pop）タイマー
+  }
+
+  /** 餌を食べた瞬間に sweets.js から呼ばれる。 */
+  onAteFood(/* pos */) {
+    this._chompT = 0.55;
+    this._joyT   = 0.9;
+    // 食べたら追跡対象をリセット → 次フレームの pickTarget で別の獲物へ
+    this._chaseTarget = null;
+    this.wanderT = 0;
   }
 
   /**
@@ -84,16 +95,37 @@ export class MrUtsugi extends Creature {
       }
     }
 
+    // タイマー減算
+    if (this._chompT > 0) this._chompT = Math.max(0, this._chompT - dt);
+    if (this._joyT   > 0) this._joyT   = Math.max(0, this._joyT   - dt);
+
     // 小走りバウンス（速度に応じて強める）
     const bounce = Math.sin(time * 9.0 + this._phase)
                  * 0.06 * (0.3 + this.speedNorm * 0.7);
-    this._parts.body.position.y = this._parts.bodyBaseY + bounce;
-    this._parts.head.position.y = this._parts.headBaseY + bounce * 0.6;
+    // 食べた直後の「ぴょん」とした嬉しさ（短時間の追加バウンス）
+    const joyK = this._joyT > 0 ? Math.sin((1 - this._joyT / 0.9) * Math.PI) : 0;
+    const joy  = joyK * 0.18;
+    this._parts.body.position.y = this._parts.bodyBaseY + bounce + joy;
+    this._parts.head.position.y = this._parts.headBaseY + bounce * 0.6 + joy * 1.1;
 
     // 腕の振り
     const arm = Math.sin(time * 9.0 + this._phase) * 0.5 * (0.2 + this.speedNorm * 0.8);
     this._parts.armL.rotation.x =  arm;
     this._parts.armR.rotation.x = -arm;
+
+    // 食べる演出: 口をパクパク + 体を縦にスクワッシュ
+    if (this._chompT > 0) {
+      const k = this._chompT / 0.55;          // 1 → 0
+      const wave = Math.sin((1 - k) * Math.PI * 6); // 3回パクパク
+      // 口を縦に開閉（torus を Y スケールで表現）
+      this._parts.mouth.scale.y = 1 + Math.max(0, wave) * 2.4;
+      // 体スクワッシュ
+      const sq = 1 + wave * 0.06;
+      this._parts.body.scale.set(1.05 / sq, 1.0 * sq, 1.05 / sq);
+    } else {
+      this._parts.mouth.scale.y = 1;
+      this._parts.body.scale.set(1.05, 1.0, 1.05);
+    }
   }
 }
 
@@ -251,7 +283,7 @@ function makeMrUtsugiMesh() {
   return {
     mesh: g,
     parts: {
-      body, head, armL, armR,
+      body, head, mouth, armL, armR,
       bodyBaseY: body.position.y,
       headBaseY: head.position.y,
     },

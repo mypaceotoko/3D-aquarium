@@ -139,7 +139,9 @@ export function launch() {
       for (const c of creatures) {
         if (!c.cfg.reactsToFood) continue;
         if (c.pos.distanceTo(f.mesh.position) < F_EAT_R) {
-          audio.triggerChomp(); eaten = true; break;
+          audio.triggerChomp();
+          c.onAteFood?.(f.mesh.position);
+          eaten = true; break;
         }
       }
       if (!eaten && (f.mesh.position.y < TANK.floorY + 0.25 || f.life <= 0)) eaten = true;
