@@ -7,6 +7,7 @@ import { Pirarucu }     from './creatures/Pirarucu.js';
 import { Trilobite }    from './creatures/Trilobite.js';
 import { GiantIsopod }  from './creatures/GiantIsopod.js';
 import { Leviathan }    from './creatures/Leviathan.js';
+import { Tamoto }       from './creatures/Tamoto.js';
 import { initControls } from './controls.js';
 import { initAudio }    from './audio.js';
 import { createObservationUI } from './interaction/observationUI.js';
@@ -54,6 +55,10 @@ const state = {
     active: false,
     position: new THREE.Vector3(),
   },
+  // Live reference — populated after the `creatures` array is created
+  // below. Tamoto reads this to detect nearby trilobite / giant isopod
+  // and dive into the sand.
+  creatures: null,
 };
 
 // Scene environment -------------------------------------------------
@@ -78,7 +83,13 @@ for (let i = 0; i < counts.isopod; i++)     creatures.push(addToScene(new GiantI
 // Leviathan — always exactly one, regardless of mobile/desktop
 creatures.push(addToScene(new Leviathan({ castShadow: !isMobile })));
 
+// 田本 — exactly one masked swimmer, loitering near the seafloor
+creatures.push(addToScene(new Tamoto({ castShadow: !isMobile })));
+
 function addToScene(c) { scene.add(c.mesh); return c; }
+
+// Expose the creatures list to behavior code (e.g. Tamoto's predator scan)
+state.creatures = creatures;
 
 const getCreatures = () => creatures;
 
@@ -191,7 +202,7 @@ obsUI.onClose(() => controls.release());
 const audio = initAudio({ state, getCreatures });
 
 // Ambient creature cycle — same 15 s behavior as tropical/ocean
-const DEEP_SPECIES = ['leviathan', 'jellyfish', 'coelacanth', 'trilobite', 'isopod', 'gar', 'pirarucu'];
+const DEEP_SPECIES = ['leviathan', 'jellyfish', 'coelacanth', 'trilobite', 'isopod', 'gar', 'pirarucu', 'tamoto'];
 const pickAmbient = () => controls.selectSpecies(DEEP_SPECIES[Math.floor(Math.random() * DEEP_SPECIES.length)]);
 let ambientTimer = setInterval(pickAmbient, 15000);
 pickAmbient();

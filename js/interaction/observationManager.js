@@ -5,7 +5,7 @@ import { createObservationUI } from './observationUI.js';
 const HIT_R = {
   // deep-sea
   leviathan: 7.0, pirarucu: 3.0, coelacanth: 2.6, gar: 2.2,
-  jellyfish:  1.6, trilobite: 1.2, isopod: 1.4,
+  jellyfish:  1.6, trilobite: 1.2, isopod: 1.4, tamoto: 1.6,
   // tropical
   clownfish: 1.5, 'neon-tetra': 1.0, 'sea-turtle': 2.5,
   guppy: 1.0, shrimp: 0.9, seahorse: 1.2, 'garden-eel': 0.9,
@@ -20,7 +20,7 @@ const HIT_R = {
 // ─── Per-species follow distance ─────────────────────────────────────────────
 const FOLLOW_D = {
   leviathan: 14, pirarucu: 6,  coelacanth: 5,  gar: 5,
-  jellyfish:  3,  trilobite: 2,  isopod: 2,
+  jellyfish:  3,  trilobite: 2,  isopod: 2, tamoto: 3.5,
   clownfish: 2.5, 'neon-tetra': 2, 'sea-turtle': 5,
   guppy: 2, shrimp: 1.8, seahorse: 2.5, 'garden-eel': 2.2,
   dolphin: 9, orca: 22, whale: 55, shark: 14, megalodon: 42,
