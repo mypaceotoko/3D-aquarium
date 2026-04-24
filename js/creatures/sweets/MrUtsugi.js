@@ -5,8 +5,14 @@ import { TANK } from '../../scene.js';
 // ─────────────────────────────────────────────────────────────────────────────
 // Mr. ウツギ — 水槽の名物キャラ。小さくて丸い、メガネのおじさん。
 // 普段は他のスイーツ生物を追いかけ、餌を見つけると猛烈に走り出す。
-// ステップ2: まずは表示されること優先。動きは既定の wander と餌反応のみ。
+// ステップ3: 他のスイーツ生物を target として追いかける土台を追加。
 // ─────────────────────────────────────────────────────────────────────────────
+
+// 追跡対象にする近接半径（これより遠ければ wander にフォールバック）
+const CHASE_SIGHT_R = 18;
+// 追跡 target を再選定するインターバル
+const RETARGET_MIN  = 1.4;
+const RETARGET_MAX  = 3.0;
 
 export class MrUtsugi extends Creature {
   constructor() {
@@ -27,9 +33,57 @@ export class MrUtsugi extends Creature {
     });
     this._parts = parts;
     this._phase = Math.random() * Math.PI * 2;
+    this._chaseTarget = null; // 現在追いかけているスイーツ生物
   }
 
-  onUpdate(dt, time) {
+  /**
+   * 既定の wander は乱数で適当な点を選ぶが、Mr. ウツギは
+   * 「近くのスイーツ生物を追いかける」モードを優先する。
+   * 対象が居なければ既定の wander にフォールバック。
+   */
+  pickTarget(state) {
+    const others = state?.creatures;
+    if (others && others.length) {
+      let best = null, bestD = CHASE_SIGHT_R * CHASE_SIGHT_R;
+      for (const c of others) {
+        if (c === this) continue;
+        if (c.species === 'mr-utsugi') continue; // 同族は追わない
+        const dx = c.pos.x - this.pos.x;
+        const dz = c.pos.z - this.pos.z;
+        const d2 = dx * dx + dz * dz;
+        if (d2 < bestD) { bestD = d2; best = c; }
+      }
+      if (best) {
+        this._chaseTarget = best;
+        // ターゲットの少し前/横にオフセットを足して「追いかけ回す」感じに
+        const off = (Math.random() - 0.5) * 1.4;
+        this.target.set(
+          best.pos.x + off,
+          THREE.MathUtils.clamp(best.pos.y - 0.4, this.cfg.depthMin, this.cfg.depthMax),
+          best.pos.z + (Math.random() - 0.5) * 1.4,
+        );
+        this.wanderT = THREE.MathUtils.randFloat(RETARGET_MIN, RETARGET_MAX);
+        return;
+      }
+    }
+    // フォールバック: 通常の wander
+    this._chaseTarget = null;
+    super.pickTarget(state);
+  }
+
+  onUpdate(dt, time, state) {
+    // 追跡中はターゲット位置に追従更新（毎フレ少しだけ追いつめる）
+    if (this._chaseTarget && !(state?.food?.active)) {
+      const t = this._chaseTarget;
+      // 対象が居なくなった/別水槽切替などへの保険
+      if (!t.pos) { this._chaseTarget = null; }
+      else {
+        this.target.x += (t.pos.x - this.target.x) * Math.min(1, dt * 1.6);
+        this.target.z += (t.pos.z - this.target.z) * Math.min(1, dt * 1.6);
+        this.target.y = THREE.MathUtils.clamp(t.pos.y - 0.4, this.cfg.depthMin, this.cfg.depthMax);
+      }
+    }
+
     // 小走りバウンス（速度に応じて強める）
     const bounce = Math.sin(time * 9.0 + this._phase)
                  * 0.06 * (0.3 + this.speedNorm * 0.7);
