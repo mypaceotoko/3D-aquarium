@@ -7,6 +7,7 @@ import { CrabPan } from '../creatures/sweets/CrabPan.js';
 import { GoldfishJelly } from '../creatures/sweets/GoldfishJelly.js';
 import { TakoSen } from '../creatures/sweets/TakoSen.js';
 import { EbiSen } from '../creatures/sweets/EbiSen.js';
+import { MrUtsugi } from '../creatures/sweets/MrUtsugi.js';
 import { initObservation } from '../interaction/observationManager.js';
 import { initAquariumAudio } from '../audio-aquarium.js';
 
@@ -59,14 +60,18 @@ export function launch() {
   const creatures = [];
   const state = { food: { active: false, position: new THREE.Vector3() } };
   const counts = isMobile
-    ? { taiyaki: 2, monaka: 1, crab: 2, jelly: 3, takosen: 2, ebisen: 6 }
-    : { taiyaki: 3, monaka: 1, crab: 3, jelly: 5, takosen: 4, ebisen: 10 };
+    ? { taiyaki: 2, monaka: 1, crab: 2, jelly: 3, takosen: 2, ebisen: 6, utsugi: 1 }
+    : { taiyaki: 3, monaka: 1, crab: 3, jelly: 5, takosen: 4, ebisen: 10, utsugi: 2 };
   for (let i = 0; i < counts.taiyaki;  i++) creatures.push(addCreature(scene, new Taiyaki()));
   for (let i = 0; i < counts.monaka;   i++) creatures.push(addCreature(scene, new CoelacanthMonaka()));
   for (let i = 0; i < counts.crab;     i++) creatures.push(addCreature(scene, new CrabPan()));
   for (let i = 0; i < counts.jelly;    i++) creatures.push(addCreature(scene, new GoldfishJelly(i)));
   for (let i = 0; i < counts.takosen;  i++) creatures.push(addCreature(scene, new TakoSen()));
   for (let i = 0; i < counts.ebisen;   i++) creatures.push(addCreature(scene, new EbiSen()));
+  for (let i = 0; i < counts.utsugi;   i++) creatures.push(addCreature(scene, new MrUtsugi()));
+
+  // Mr. ウツギが他生物を target として参照できるように共有
+  state.creatures = creatures;
 
   // ── Camera controls ──────────────────────────────────────────────────────
   const orbit = new OrbitControls(camera, canvas);
@@ -134,7 +139,9 @@ export function launch() {
       for (const c of creatures) {
         if (!c.cfg.reactsToFood) continue;
         if (c.pos.distanceTo(f.mesh.position) < F_EAT_R) {
-          audio.triggerChomp(); eaten = true; break;
+          audio.triggerChomp();
+          c.onAteFood?.(f.mesh.position);
+          eaten = true; break;
         }
       }
       if (!eaten && (f.mesh.position.y < TANK.floorY + 0.25 || f.life <= 0)) eaten = true;
@@ -214,6 +221,7 @@ function buildUI(obs, renderer, audio, onFeed) {
     { id: 'goldfish-jelly',      label: '金魚ゼリー' },
     { id: 'tako-sen',            label: 'タコせん' },
     { id: 'ebi-sen',             label: 'えびせん' },
+    { id: 'mr-utsugi',           label: 'Mr. ウツギ' },
   ];
   const sGroup = document.createElement('div');
   sGroup.className = 'group species';
