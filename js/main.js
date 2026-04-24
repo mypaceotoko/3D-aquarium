@@ -202,7 +202,7 @@ obsUI.onClose(() => controls.release());
 const audio = initAudio({ state, getCreatures });
 
 // Ambient creature cycle — same 15 s behavior as tropical/ocean
-const DEEP_SPECIES = ['leviathan', 'jellyfish', 'coelacanth', 'trilobite', 'isopod', 'gar', 'pirarucu'];
+const DEEP_SPECIES = ['leviathan', 'jellyfish', 'coelacanth', 'trilobite', 'isopod', 'gar', 'pirarucu', 'tamoto'];
 const pickAmbient = () => controls.selectSpecies(DEEP_SPECIES[Math.floor(Math.random() * DEEP_SPECIES.length)]);
 let ambientTimer = setInterval(pickAmbient, 15000);
 pickAmbient();
