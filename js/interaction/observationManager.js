@@ -11,7 +11,7 @@ const HIT_R = {
   guppy: 1.0, shrimp: 0.9, seahorse: 1.2, 'garden-eel': 0.9,
   // ocean (large creatures need generous radii)
   dolphin: 3.5, orca: 9.0, whale: 24.0, shark: 6.5, megalodon: 18.0,
-  squid: 28.0,
+  squid: 28.0, innocence: 1.2,
   // sweets
   taiyaki: 1.8, 'coelacanth-monaka': 2.6, 'crab-pan': 1.6,
   'goldfish-jelly': 1.5, 'tako-sen': 1.6, 'ebi-sen': 0.9,
@@ -24,7 +24,7 @@ const FOLLOW_D = {
   clownfish: 2.5, 'neon-tetra': 2, 'sea-turtle': 5,
   guppy: 2, shrimp: 1.8, seahorse: 2.5, 'garden-eel': 2.2,
   dolphin: 9, orca: 22, whale: 55, shark: 14, megalodon: 42,
-  squid: 58,
+  squid: 58, innocence: 3,
   taiyaki: 4, 'coelacanth-monaka': 5, 'crab-pan': 3.5,
   'goldfish-jelly': 3.5, 'tako-sen': 4, 'ebi-sen': 2.5,
 };
