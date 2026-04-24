@@ -20,10 +20,14 @@ export class Tamoto extends Creature {
         speed: 0.55, maxAccel: 0.7, turnRate: 1.0,
         depthMin: TANK.floorY + 0.7, depthMax: TANK.floorY + 3.2,
         wanderMin: 6, wanderMax: 14, wallMargin: 3.5,
-        reactsToFood: false, facesVelocity: true,
+        reactsToFood: true, facesVelocity: true,
       },
     });
-    this._phase = Math.random() * Math.PI * 2;
+    this._phase       = Math.random() * Math.PI * 2;
+    this._baseSpeed   = 0.55;
+    this._baseAccel   = 0.7;
+    this._baseTurn    = 1.0;
+    this._feedBoostT  = 0;   // lerp-in timer for food-chase excitement
   }
 
   onPickTarget(target) {
@@ -31,54 +35,78 @@ export class Tamoto extends Creature {
     target.y = THREE.MathUtils.randFloat(TANK.floorY + 0.7, TANK.floorY + 3.2);
   }
 
-  onUpdate(dt, time) {
+  onUpdate(dt, time, state) {
     const ud = this.mesh.userData;
     const t  = time * 1.2 + this._phase;
 
-    // Flutter kick
-    const kick = Math.sin(t * 2.4);
-    if (ud.hipL)  ud.hipL.rotation.z  = -0.04 + kick * 0.22;
-    if (ud.hipR)  ud.hipR.rotation.z  = -0.04 - kick * 0.22;
-    if (ud.kneeL) ud.kneeL.rotation.z =  0.10 - kick * 0.28;
-    if (ud.kneeR) ud.kneeR.rotation.z =  0.10 + kick * 0.28;
+    // ── Food-chase frenzy ────────────────────────────────────────────
+    // Whenever food is active in the tank, 田本 becomes hyper-excited:
+    // boost speed + accel + turn rate, faster leg kicks, phone forgotten.
+    const wantsFood = !!state?.food?.active;
+    const target    = wantsFood ? 1 : 0;
+    // Ease the boost in/out so the state change doesn't feel snappy.
+    this._feedBoostT = THREE.MathUtils.lerp(
+      this._feedBoostT, target, Math.min(1, dt * (wantsFood ? 3.5 : 2.2)),
+    );
+    const boost = this._feedBoostT;          // 0..1
 
-    // Free left arm drift
+    this.cfg.speed    = this._baseSpeed  * (1 + boost * 3.2);
+    this.cfg.maxAccel = this._baseAccel  * (1 + boost * 2.8);
+    this.cfg.turnRate = this._baseTurn   * (1 + boost * 1.6);
+
+    // Flutter kick — amplitude + frequency both rise during the rush
+    const kickFreq = 2.4 + boost * 3.6;
+    const kickAmp  = 0.22 + boost * 0.30;
+    const kick = Math.sin(t * kickFreq);
+    if (ud.hipL)  ud.hipL.rotation.z  = -0.04 + kick * kickAmp;
+    if (ud.hipR)  ud.hipR.rotation.z  = -0.04 - kick * kickAmp;
+    if (ud.kneeL) ud.kneeL.rotation.z =  0.10 - kick * (kickAmp * 1.3);
+    if (ud.kneeR) ud.kneeR.rotation.z =  0.10 + kick * (kickAmp * 1.3);
+
+    // Free left arm drift — reaches forward during the rush like a grab
     if (ud.shoulderFree) {
-      ud.shoulderFree.rotation.z = -0.22 + Math.sin(t * 0.85) * 0.10;
-      ud.shoulderFree.rotation.x =         Math.cos(t * 0.80) * 0.08;
+      const base = -0.22 + boost * 0.50;    // swings up/forward when chasing
+      ud.shoulderFree.rotation.z = base + Math.sin(t * (0.85 + boost * 2)) * 0.10;
+      ud.shoulderFree.rotation.x =        Math.cos(t * (0.80 + boost * 2)) * 0.08;
     }
     if (ud.elbowFree) {
-      ud.elbowFree.rotation.y = 0.25 + Math.sin(t * 0.95 + 0.5) * 0.10;
+      ud.elbowFree.rotation.y = 0.25 + boost * 0.35
+                              + Math.sin(t * (0.95 + boost * 2) + 0.5) * 0.10;
     }
 
-    // Phone arm — locked up, only micro-sway
+    // Phone arm — normally locked, but during the rush it tucks in
     if (ud.shoulderPhone) {
-      ud.shoulderPhone.rotation.x = -0.05 + Math.sin(t * 0.55) * 0.03;
+      ud.shoulderPhone.rotation.x = -0.05 - boost * 0.35
+                                  + Math.sin(t * (0.55 + boost * 1.5)) * 0.03;
     }
 
-    // Head fixated on the phone, gentle idle
+    // Head — normally locked on phone; during rush, snaps forward toward food
     if (ud.head) {
-      ud.head.rotation.z = -0.28 + Math.sin(t * 0.55) * 0.02;
-      ud.head.rotation.y =         Math.sin(t * 0.38) * 0.02;
+      ud.head.rotation.z = (-0.28) * (1 - boost) + boost * 0.05
+                         + Math.sin(t * 0.55) * 0.02;
+      ud.head.rotation.y =  Math.sin(t * 0.38) * 0.02 * (1 - boost);
     }
 
-    // Hair sway (dry, subtle)
+    // Hair sway — a touch livelier under acceleration
     if (ud.hairTufts) {
       for (let i = 0; i < ud.hairTufts.length; i++) {
         const h = ud.hairTufts[i];
-        h.rotation.z = h.userData.rz0 + Math.sin(t * 1.6 + i * 0.5) * 0.05;
+        h.rotation.z = h.userData.rz0
+                     + Math.sin(t * (1.6 + boost * 1.5) + i * 0.5) * (0.05 + boost * 0.08);
       }
     }
 
-    // Phone screen subtle pulse
+    // Phone screen — dim & go idle during the chase (he's not looking)
     if (ud.screenMat) {
-      ud.screenMat.emissiveIntensity = 1.05 + Math.sin(time * 2.1) * 0.22;
+      ud.screenMat.emissiveIntensity = (1.05 + Math.sin(time * 2.1) * 0.22)
+                                     * (1 - boost * 0.8);
     }
 
-    // Body-level motion — bank into turns, gentle drift
-    this.mesh.rotation.z = -this.turnSignal * 0.20 + Math.sin(t * 0.35) * 0.022;
-    this.mesh.rotation.x =  Math.sin(t * 0.28) * 0.028;
-    this.mesh.position.y =  this.pos.y + Math.sin(t * 0.45) * 0.18;
+    // Body-level motion — banks harder, bobs less when sprinting
+    this.mesh.rotation.z = -this.turnSignal * (0.20 + boost * 0.10)
+                         + Math.sin(t * 0.35) * 0.022;
+    this.mesh.rotation.x =  Math.sin(t * 0.28) * 0.028 - boost * 0.18;   // nose-down lunge
+    this.mesh.position.y =  this.pos.y + Math.sin(t * 0.45) * (0.18 * (1 - boost * 0.6));
   }
 }
 
