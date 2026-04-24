@@ -8,7 +8,7 @@ const HIT_R = {
   jellyfish:  1.6, trilobite: 1.2, isopod: 1.4,
   // tropical
   clownfish: 1.5, 'neon-tetra': 1.0, 'sea-turtle': 2.5,
-  guppy: 1.0, shrimp: 0.9, seahorse: 1.2,
+  guppy: 1.0, shrimp: 0.9, seahorse: 1.2, 'garden-eel': 0.9,
   // ocean (large creatures need generous radii)
   dolphin: 3.5, orca: 9.0, whale: 24.0, shark: 6.5, megalodon: 18.0,
   squid: 28.0,
@@ -22,7 +22,7 @@ const FOLLOW_D = {
   leviathan: 14, pirarucu: 6,  coelacanth: 5,  gar: 5,
   jellyfish:  3,  trilobite: 2,  isopod: 2,
   clownfish: 2.5, 'neon-tetra': 2, 'sea-turtle': 5,
-  guppy: 2, shrimp: 1.8, seahorse: 2.5,
+  guppy: 2, shrimp: 1.8, seahorse: 2.5, 'garden-eel': 2.2,
   dolphin: 9, orca: 22, whale: 55, shark: 14, megalodon: 42,
   squid: 58,
   taiyaki: 4, 'coelacanth-monaka': 5, 'crab-pan': 3.5,

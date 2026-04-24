@@ -59,7 +59,10 @@ export function launch() {
   for (let i = 0; i < counts.shrimp;   i++) creatures.push(add(scene, new Shrimp()));
   for (let i = 0; i < counts.seahorse; i++) creatures.push(add(scene, new Seahorse()));
   creatures.push(add(scene, new SeaTurtle()));
-  const gardenEels = buildGardenEels(scene, counts.eel);
+  // Chin-anago colony — two clusters of garden eels poking out of the sand
+  for (const anchor of buildGardenEelColonies(counts.eel)) {
+    creatures.push(add(scene, new GardenEel(anchor)));
+  }
 
   // ── Camera controls ──────────────────────────────────────────────────────
   const orbit = new OrbitControls(camera, canvas);
@@ -171,10 +174,6 @@ export function launch() {
     for (const sw of seaweeds) {
       sw.rotation.z = Math.sin(time * 0.72 + sw.userData.phase) * 0.22;
     }
-    for (const el of gardenEels) {
-      el.rotation.z = Math.sin(time * el.userData.spd + el.userData.phase) * 0.24;
-      el.rotation.x = Math.cos(time * el.userData.spd * 0.65 + el.userData.phase) * 0.12;
-    }
 
     for (const c of creatures) c.update(dt, time, state);
     updateFood(dt);
@@ -208,6 +207,7 @@ function buildUI(obs, renderer, audio, onFeed) {
     { id: 'guppy',      label: 'グッピー' },
     { id: 'shrimp',     label: '小エビ' },
     { id: 'seahorse',   label: 'タツノオトシゴ' },
+    { id: 'garden-eel', label: 'チンアナゴ' },
   ];
   for (const sp of SPECIES) {
     const b = document.createElement('button');
@@ -810,40 +810,169 @@ function makeSeahorseMesh() {
 
 // ─── Garden Eels (チンアナゴ) ─────────────────────────────────────────────
 
-function buildGardenEels(scene, count) {
-  const bodyMat = new THREE.MeshStandardMaterial({ color: 0xc8b880, roughness: 0.65, metalness: 0.04 });
-  const dotMat  = new THREE.MeshStandardMaterial({ color: 0x706050, roughness: 0.70 });
-  const eels    = [];
-  for (let i = 0; i < count; i++) {
-    const h   = THREE.MathUtils.randFloat(1.4, 2.5);
-    const geo = new THREE.CylinderGeometry(0.042, 0.072, h, 8, 1);
-    geo.translate(0, h / 2, 0);   // pivot at base so rotation swings the tip
-    const eel = new THREE.Mesh(geo, bodyMat.clone());
-    eel.position.set(
-      THREE.MathUtils.randFloat(-22, 22),
-      TANK.floorY + 0.06,
-      THREE.MathUtils.randFloat(-16, 16),
+// Shared materials — garden eels reuse the same look, so building these once
+// keeps the colony cheap (one draw call per segment, no per-eel clones).
+const GE_BODY_MAT = new THREE.MeshStandardMaterial({
+  color: 0xf2e4c2, roughness: 0.58, metalness: 0.03,
+});
+const GE_DOT_MAT = new THREE.MeshStandardMaterial({ color: 0x1a1612, roughness: 0.78 });
+const GE_EYE_MAT = new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.35 });
+const GE_MOUND_MAT = new THREE.MeshStandardMaterial({
+  color: 0xe6c67a, roughness: 0.95, metalness: 0,
+});
+
+const GE_SEG_COUNT  = 5;
+const GE_SEG_HEIGHT = 0.34;
+const GE_BODY_LEN   = GE_SEG_COUNT * GE_SEG_HEIGHT;
+
+// Spread eels across 2 clusters (garden eels live in colonies) so they look
+// like a natural group instead of scattered singletons.
+function buildGardenEelColonies(total) {
+  const centers = [
+    { x: THREE.MathUtils.randFloatSpread(18) - 4, z: THREE.MathUtils.randFloatSpread(10) + 4 },
+    { x: THREE.MathUtils.randFloatSpread(18) + 6, z: THREE.MathUtils.randFloatSpread(10) - 6 },
+  ];
+  const out = [];
+  for (let i = 0; i < total; i++) {
+    const c   = centers[i % centers.length];
+    const ang = Math.random() * Math.PI * 2;
+    const r   = THREE.MathUtils.randFloat(0.6, 3.2);
+    out.push({
+      x: THREE.MathUtils.clamp(c.x + Math.cos(ang) * r, TANK.minX + 4, TANK.maxX - 4),
+      z: THREE.MathUtils.clamp(c.z + Math.sin(ang) * r, TANK.minZ + 3, TANK.maxZ - 3),
+    });
+  }
+  return out;
+}
+
+class GardenEel {
+  constructor({ x, z }) {
+    this.species = 'garden-eel';
+    this.cfg = { reactsToFood: false };
+
+    // Stationary: pos never changes. Heading points opposite to the head's
+    // facing so the observation camera parks in front of the eel and we see
+    // its face — not the back of its head.
+    this.pos = new THREE.Vector3(x, TANK.floorY + GE_BODY_LEN * 0.55, z);
+    const yaw = Math.random() * Math.PI * 2;
+    // Mesh's local +Z is forward (eyes face +z). World-forward after yaw is
+    // (sin(yaw), 0, cos(yaw)). Heading = -forward so camera lands in front.
+    this.heading = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
+
+    this.mesh = new THREE.Group();
+    this.mesh.position.set(x, TANK.floorY, z);
+    this.mesh.rotation.y = yaw;
+
+    // Small sand mound around the burrow
+    const mound = new THREE.Mesh(
+      new THREE.SphereGeometry(0.28, 10, 6, 0, Math.PI * 2, 0, Math.PI * 0.5),
+      GE_MOUND_MAT,
     );
-    eel.userData.phase = Math.random() * Math.PI * 2;
-    eel.userData.spd   = 0.33 + Math.random() * 0.30;
+    mound.scale.set(1, 0.35, 1);
+    mound.position.y = 0.01;
+    this.mesh.add(mound);
 
-    // Head
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.064, 8, 6), bodyMat.clone());
-    head.position.y = h + 0.022;
-    head.scale.set(0.88, 1.08, 0.82);
-    eel.add(head);
+    // Anchor groups — each group's origin is its own pivot, so nested rotations
+    // propagate a sway wave up the body like a real garden eel.
+    this.segments = [];
+    let parent = this.mesh;
+    for (let i = 0; i < GE_SEG_COUNT; i++) {
+      const anchor = new THREE.Group();
+      anchor.position.y = i === 0 ? 0.02 : GE_SEG_HEIGHT;
+      parent.add(anchor);
 
-    // Spot markings
-    for (let j = 0; j < 3; j++) {
-      const dot = new THREE.Mesh(new THREE.SphereGeometry(0.024, 5, 4), dotMat);
-      dot.position.set(0.052, h * (0.22 + j * 0.22), 0);
-      eel.add(dot);
+      const rTop = 0.045 + (GE_SEG_COUNT - 1 - i) * 0.006;
+      const rBot = 0.045 + (GE_SEG_COUNT - i)     * 0.006;
+      const segGeo = new THREE.CylinderGeometry(rTop, rBot, GE_SEG_HEIGHT, 8);
+      segGeo.translate(0, GE_SEG_HEIGHT / 2, 0); // pivot at base of segment
+      const seg = new THREE.Mesh(segGeo, GE_BODY_MAT);
+      seg.castShadow = true;
+      anchor.add(seg);
+
+      // Scatter spots on the visible side of the body
+      const dotCount = 2 + Math.floor(Math.random() * 2);
+      for (let j = 0; j < dotCount; j++) {
+        const dot = new THREE.Mesh(new THREE.SphereGeometry(0.022, 5, 4), GE_DOT_MAT);
+        const dotAng = Math.random() * Math.PI * 2;
+        const rr = rTop + 0.001;
+        dot.position.set(
+          Math.cos(dotAng) * rr,
+          GE_SEG_HEIGHT * (0.2 + Math.random() * 0.6),
+          Math.sin(dotAng) * rr,
+        );
+        dot.scale.set(1, 0.55, 1);
+        anchor.add(dot);
+      }
+
+      // Head on the topmost segment — small hemisphere + two tiny eyes
+      if (i === GE_SEG_COUNT - 1) {
+        const head = new THREE.Mesh(new THREE.SphereGeometry(0.062, 10, 8), GE_BODY_MAT);
+        head.position.y = GE_SEG_HEIGHT + 0.018;
+        head.scale.set(0.95, 1.12, 0.88);
+        anchor.add(head);
+
+        for (const sx of [-1, 1]) {
+          const eye = new THREE.Mesh(new THREE.SphereGeometry(0.014, 5, 4), GE_EYE_MAT);
+          eye.position.set(sx * 0.032, GE_SEG_HEIGHT + 0.042, 0.048);
+          anchor.add(eye);
+        }
+
+        // Pucker mouth dot
+        const mouth = new THREE.Mesh(new THREE.SphereGeometry(0.012, 5, 4), GE_DOT_MAT);
+        mouth.position.set(0, GE_SEG_HEIGHT - 0.006, 0.056);
+        mouth.scale.set(1, 0.7, 0.7);
+        anchor.add(mouth);
+      }
+
+      this.segments.push(anchor);
+      parent = anchor;
     }
 
-    scene.add(eel);
-    eels.push(eel);
+    this._phase   = Math.random() * Math.PI * 2;
+    this._spd     = 0.55 + Math.random() * 0.35;
+    this._swayAmp = 0.11 + Math.random() * 0.06;
+
+    // Emergence state: 0 = buried, 1 = fully out. Retracts briefly, then emerges.
+    this._emerge       = 1;
+    this._emergeTarget = 1;
+    this._timer        = 8 + Math.random() * 14;
   }
-  return eels;
+
+  update(dt, time) {
+    this._timer -= dt;
+    if (this._timer <= 0) {
+      if (this._emergeTarget > 0.5) {
+        this._emergeTarget = 0.08;      // duck in
+        this._timer = 1.2 + Math.random() * 1.8;
+      } else {
+        this._emergeTarget = 1;          // peek back out
+        this._timer = 10 + Math.random() * 18;
+      }
+    }
+    this._emerge += (this._emergeTarget - this._emerge) * Math.min(1, dt * 2.4);
+
+    // Scale Y to retract into the sand; mound stays put because it's parented
+    // to the root, not to the first anchor. Scale is applied per-anchor below.
+    const emerge = this._emerge;
+
+    // Wave motion: each segment gets a phase-shifted sway so the body curls
+    // like a whip instead of rotating rigidly.
+    for (let i = 0; i < this.segments.length; i++) {
+      const seg = this.segments[i];
+      const ph  = this._phase + i * 0.55;
+      const amp = this._swayAmp * emerge;
+      seg.rotation.x = Math.sin(time * this._spd + ph) * amp;
+      seg.rotation.z = Math.cos(time * this._spd * 0.83 + ph * 1.1) * amp * 0.8;
+      // Y-scale on the first anchor is enough to sink the whole chain
+      if (i === 0) seg.scale.y = emerge * 0.94 + 0.06;
+    }
+
+    this.pos.y = TANK.floorY + GE_BODY_LEN * 0.55 * emerge;
+  }
+
+  getCenter(out = new THREE.Vector3()) {
+    return out.copy(this.pos);
+  }
 }
 
 // ─── Water surface ────────────────────────────────────────────────────────
