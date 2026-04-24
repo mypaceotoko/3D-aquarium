@@ -55,6 +55,10 @@ const state = {
     active: false,
     position: new THREE.Vector3(),
   },
+  // Live reference — populated after the `creatures` array is created
+  // below. Tamoto reads this to detect nearby trilobite / giant isopod
+  // and dive into the sand.
+  creatures: null,
 };
 
 // Scene environment -------------------------------------------------
@@ -83,6 +87,9 @@ creatures.push(addToScene(new Leviathan({ castShadow: !isMobile })));
 creatures.push(addToScene(new Tamoto({ castShadow: !isMobile })));
 
 function addToScene(c) { scene.add(c.mesh); return c; }
+
+// Expose the creatures list to behavior code (e.g. Tamoto's predator scan)
+state.creatures = creatures;
 
 const getCreatures = () => creatures;
 

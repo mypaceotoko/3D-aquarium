@@ -2,6 +2,9 @@ import * as THREE from 'three';
 import { Creature } from './Creature.js';
 import { TANK } from '../scene.js';
 
+// Predator species that send 田本 diving into the sand.
+const TAMOTO_PANIC_SPECIES = new Set(['trilobite', 'isopod']);
+
 /**
  * 田本 (Tamoto) — masked casual swimmer who drifts through the deep-sea tank
  * staring at his phone.  Short black hair, white surgical mask, navy tee,
@@ -28,6 +31,8 @@ export class Tamoto extends Creature {
     this._baseAccel   = 0.7;
     this._baseTurn    = 1.0;
     this._feedBoostT  = 0;   // lerp-in timer for food-chase excitement
+    this._hideT       = 0;   // 0..1: amount submerged into the sand
+    this._hideLockT   = 0;   // grace-period once surfacing to avoid flicker
   }
 
   onPickTarget(target) {
@@ -38,6 +43,21 @@ export class Tamoto extends Creature {
   onUpdate(dt, time, state) {
     const ud = this.mesh.userData;
     const t  = time * 1.2 + this._phase;
+
+    // ── Predator scan: trilobite / giant isopod within THREAT_R ──────
+    // When one is near, 田本 panics and burrows into the sand (body is
+    // clipped by the opaque seafloor, visually "hiding" in it).  Food
+    // excitement overrides fear — the rush is stronger than the threat.
+    const THREAT_R    = 4.2;
+    const PANIC_SPECIES = TAMOTO_PANIC_SPECIES;
+    let threatNear = false;
+    const list = state?.creatures;
+    if (list) {
+      for (const c of list) {
+        if (!PANIC_SPECIES.has(c.species)) continue;
+        if (c.pos.distanceTo(this.pos) < THREAT_R) { threatNear = true; break; }
+      }
+    }
 
     // ── Food-chase frenzy ────────────────────────────────────────────
     // Whenever food is active in the tank, 田本 becomes hyper-excited:
@@ -107,6 +127,36 @@ export class Tamoto extends Creature {
                          + Math.sin(t * 0.35) * 0.022;
     this.mesh.rotation.x =  Math.sin(t * 0.28) * 0.028 - boost * 0.18;   // nose-down lunge
     this.mesh.position.y =  this.pos.y + Math.sin(t * 0.45) * (0.18 * (1 - boost * 0.6));
+
+    // ── Hide-in-sand override ────────────────────────────────────────
+    // Food excitement wins over fear — if there's food, surface fast.
+    this._hideLockT = Math.max(0, this._hideLockT - dt);
+    const wantHide = threatNear && !wantsFood;
+    const targetH  = wantHide ? 1 : 0;
+    // Dive faster than surfacing (self-preservation feels snappier)
+    const hideRate = wantHide ? 3.8 : 1.8;
+    this._hideT = THREE.MathUtils.lerp(this._hideT, targetH, Math.min(1, dt * hideRate));
+
+    if (this._hideT > 0.01) {
+      // Damp velocity so the body doesn't drift along the floor while hidden
+      this.vel.multiplyScalar(Math.pow(0.05, dt * this._hideT));
+      // Sink below the sand plane — the seafloor mesh clips the body.
+      // At full hide, only the top of the head / hair pokes up slightly.
+      this.mesh.position.y = this.pos.y - this._hideT * 1.4;
+      // Settle flat and slightly nose-down — "burrowing" pose
+      this.mesh.rotation.z *= (1 - this._hideT);
+      this.mesh.rotation.x  = this.mesh.rotation.x * (1 - this._hideT) + 0.14 * this._hideT;
+      // Freeze kick + arms progressively
+      const freeze = 1 - this._hideT;
+      if (ud.hipL)  ud.hipL.rotation.z  *= freeze;
+      if (ud.hipR)  ud.hipR.rotation.z  *= freeze;
+      if (ud.kneeL) ud.kneeL.rotation.z  = 0.10 * freeze;
+      if (ud.kneeR) ud.kneeR.rotation.z  = 0.10 * freeze;
+      if (ud.shoulderFree) ud.shoulderFree.rotation.z *= freeze;
+      if (ud.elbowFree)    ud.elbowFree.rotation.y    *= freeze;
+      // Screen dims completely when buried
+      if (ud.screenMat) ud.screenMat.emissiveIntensity *= freeze;
+    }
   }
 }
 
