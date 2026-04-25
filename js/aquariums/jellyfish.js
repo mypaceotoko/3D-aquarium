@@ -7,6 +7,7 @@ import { NomuraJellyfish }  from '../creatures/jellies/NomuraJellyfish.js';
 import { SpottedJellyfish } from '../creatures/jellies/SpottedJellyfish.js';
 import { CrystalJellyfish } from '../creatures/jellies/CrystalJellyfish.js';
 import { initObservation }  from '../interaction/observationManager.js';
+import { initAquariumAudio } from '../audio-aquarium.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // クラゲ幻想水槽 — まず動く最低限のシーン
@@ -97,6 +98,17 @@ export function launch() {
   // ── Observation system (タップで種名・追従) ───────────────────────────────
   const obs = initObservation({ camera, orbit, canvas, getCreatures: () => creatures });
 
+  // ── Audio ─────────────────────────────────────────────────────────────────
+  const audio = initAquariumAudio({ theme: 'jellyfish', getCreatures: () => creatures });
+
+  // ── UI panel ─────────────────────────────────────────────────────────────
+  const uiPanel = buildUI(obs, renderer, audio);
+
+  let _lastMove = performance.now();
+  ['pointermove', 'pointerdown', 'keydown'].forEach(evt =>
+    window.addEventListener(evt, () => { _lastMove = performance.now(); uiPanel.classList.remove('dim'); }, { passive: true })
+  );
+
   // ── Lifecycle ────────────────────────────────────────────────────────────
   window.addEventListener('resize', () => {
     renderer.setSize(window.innerWidth, window.innerHeight, false);
@@ -120,13 +132,117 @@ export function launch() {
     bubbles.update(dt, time);
     animateWater(waterSurf, time);
     obs.update(dt);
+    audio.update(dt, time);
     if (!obs.isObserving) orbit.update();
+    if (performance.now() - _lastMove > 5000) uiPanel.classList.add('dim');
     renderer.render(scene, camera);
   }
   loop();
 }
 
 function addCreature(scene, c) { scene.add(c.mesh); return c; }
+
+// ─── UI panel (種類ボタン / 鑑賞 / 音 / 明るさ) ────────────────────────────
+function buildUI(obs, renderer, audio) {
+  const panel = document.createElement('div');
+  panel.className = 'ui';
+
+  const body = document.createElement('div');
+  body.className = 'ui-body';
+
+  const SPECIES = [
+    { id: 'moon-jelly',    label: 'ミズクラゲ' },
+    { id: 'red-jelly',     label: 'アカクラゲ' },
+    { id: 'nomura-jelly',  label: 'エチゼンクラゲ' },
+    { id: 'spotted-jelly', label: 'タコクラゲ' },
+    { id: 'crystal-jelly', label: 'オワンクラゲ' },
+  ];
+  const sGroup = document.createElement('div');
+  sGroup.className = 'group species';
+  for (const sp of SPECIES) {
+    const b = document.createElement('button');
+    b.className = 'btn';
+    b.textContent = sp.label;
+    b.addEventListener('click', () => obs.selectSpecies(sp.id));
+    sGroup.appendChild(b);
+  }
+  body.appendChild(sGroup);
+
+  const cGroup = document.createElement('div');
+  cGroup.className = 'group';
+
+  const BRIGHT = [{ label: '暗め', v: 0.85 }, { label: '標準', v: 1.10 }, { label: '明るめ', v: 1.45 }];
+  let bIdx = 1;
+  const btnB = document.createElement('button');
+  btnB.className = 'btn';
+  btnB.textContent = `明 ${BRIGHT[bIdx].label}`;
+  btnB.addEventListener('click', () => {
+    bIdx = (bIdx + 1) % BRIGHT.length;
+    renderer.toneMappingExposure = BRIGHT[bIdx].v;
+    btnB.textContent = `明 ${BRIGHT[bIdx].label}`;
+  });
+  cGroup.appendChild(btnB);
+
+  let soundOn = false;
+  const btnSound = document.createElement('button');
+  btnSound.className = 'btn';
+  btnSound.textContent = '音 OFF';
+  btnSound.setAttribute('aria-pressed', 'false');
+  btnSound.addEventListener('click', () => {
+    if (soundOn) {
+      audio.disable(); soundOn = false;
+      btnSound.textContent = '音 OFF';
+      btnSound.setAttribute('aria-pressed', 'false');
+    } else if (audio.enable()) {
+      soundOn = true;
+      btnSound.textContent = '音 ON';
+      btnSound.setAttribute('aria-pressed', 'true');
+    }
+  });
+  cGroup.appendChild(btnSound);
+
+  const pickAmbient = () => obs.selectSpecies(SPECIES[Math.floor(Math.random() * SPECIES.length)].id);
+  let ambientOn = true;
+  let ambientTimer = setInterval(pickAmbient, 16000);
+  pickAmbient();
+  const btnAmbient = document.createElement('button');
+  btnAmbient.className = 'btn';
+  btnAmbient.textContent = '鑑賞 ON';
+  btnAmbient.setAttribute('aria-pressed', 'true');
+  btnAmbient.addEventListener('click', () => {
+    ambientOn = !ambientOn;
+    if (ambientOn) {
+      pickAmbient();
+      ambientTimer = setInterval(pickAmbient, 16000);
+      btnAmbient.textContent = '鑑賞 ON';
+      btnAmbient.setAttribute('aria-pressed', 'true');
+    } else {
+      clearInterval(ambientTimer);
+      obs.stopObserving();
+      btnAmbient.textContent = '鑑賞 OFF';
+      btnAmbient.setAttribute('aria-pressed', 'false');
+    }
+  });
+  cGroup.appendChild(btnAmbient);
+
+  body.appendChild(cGroup);
+
+  panel.appendChild(body);
+
+  const toggle = document.createElement('button');
+  toggle.className = 'btn btn-toggle';
+  toggle.textContent = '▾';
+  toggle.setAttribute('aria-expanded', 'true');
+  toggle.addEventListener('click', () => {
+    const collapsed = panel.classList.toggle('collapsed');
+    toggle.textContent = collapsed ? '▴' : '▾';
+    toggle.setAttribute('aria-expanded', String(!collapsed));
+  });
+  panel.appendChild(toggle);
+
+  document.body.appendChild(panel);
+  return panel;
+}
 
 // ─── Floor — 暗く沈んだ砂底、紫青の陰影 ───────────────────────────────────
 function buildFloor(scene) {
