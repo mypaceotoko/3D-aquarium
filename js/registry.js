@@ -34,4 +34,12 @@ export const AQUARIUMS = [
     accent:   '#ff7aa8',
     launch:   () => import('./aquariums/sweets.js').then(m => m.launch()),
   },
+  {
+    id:       'jellyfish',
+    title:    'クラゲ幻想水槽',
+    desc:     '光と闇が溶け合う、薄暮の水槽。ミズクラゲ、アカクラゲ、エチゼンクラゲ——大小様々な海月たちが、ゆっくりと脈打ちながら漂う、幻想的な静寂の海。',
+    gradient: 'linear-gradient(155deg,#1a0838 0%,#3a1466 35%,#0a3a5a 70%,#062840 100%)',
+    accent:   '#b988ff',
+    launch:   () => import('./aquariums/jellyfish.js').then(m => m.launch()),
+  },
 ];

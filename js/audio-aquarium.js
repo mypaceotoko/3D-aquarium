@@ -155,6 +155,55 @@ export function initAquariumAudio({ theme = 'tropical', getCreatures } = {}) {
       };
       setTimeout(scheduleTwinkle, 400);
 
+    } else if (theme === 'jellyfish') {
+      // 幻想的な薄暮の層: 高めのドローン + 低めのうねり + 不規則なベルチャイム
+      // 透明感のあるアンビエント、クラゲの脈動と呼応する静寂のサウンドスケープ
+      const shimSrc = ctx.createBufferSource();
+      shimSrc.buffer = buf; shimSrc.loop = true;
+      shimSrc.detune.value = 1600;
+      const shimBP = ctx.createBiquadFilter();
+      shimBP.type = 'bandpass';
+      shimBP.frequency.value = 900;
+      shimBP.Q.value = 0.55;
+      themeG = ctx.createGain();
+      themeG.gain.value = 0.05;
+      shimSrc.connect(shimBP).connect(themeG).connect(master);
+      shimSrc.start();
+
+      const shimLfo = _makeSineLfo(ctx, 14);
+      const shimLfoG = ctx.createGain();
+      shimLfoG.gain.value = 0.025;
+      shimLfo.connect(shimLfoG).connect(themeG.gain);
+      shimLfo.start();
+
+      // 静かに鳴る幻想的なチャイム — 5音階で、間隔は長め
+      const chimeG = ctx.createGain();
+      chimeG.gain.value = 0.10;
+      chimeG.connect(master);
+      const scheduleChime = () => {
+        if (!ctx) return;
+        const now = ctx.currentTime;
+        // D♭ペンタトニック — 神秘的な響き
+        const notes = [277, 370, 415, 554, 622, 740, 830];
+        const f = notes[Math.floor(Math.random() * notes.length)];
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.value = f;
+        // 共鳴フィルタで金属感を抑える
+        const lp = ctx.createBiquadFilter();
+        lp.type = 'lowpass';
+        lp.frequency.value = 2400;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.0001, now);
+        g.gain.exponentialRampToValueAtTime(0.16, now + 0.03);
+        g.gain.exponentialRampToValueAtTime(0.0001, now + 2.2);
+        osc.connect(lp).connect(g).connect(chimeG);
+        osc.start(now); osc.stop(now + 2.4);
+        const delay = 3.5 + Math.random() * 5.5;
+        setTimeout(scheduleChime, delay * 1000);
+      };
+      setTimeout(scheduleChime, 1200);
+
     } else {
       // Ocean: slow deep whale-drone, gain driven by LFO + creature speed
       const whaleSrc = ctx.createBufferSource();
@@ -219,7 +268,9 @@ export function initAquariumAudio({ theme = 'tropical', getCreatures } = {}) {
       ? 360 + Math.random() * 520
       : theme === 'sweets'
         ? 700 + Math.random() * 900
-        : 500 + Math.random() * 700;
+        : theme === 'jellyfish'
+          ? 380 + Math.random() * 480   // 控えめで穏やか
+          : 500 + Math.random() * 700;
     const osc = ctx.createOscillator();
     osc.type = 'sine';
     osc.frequency.setValueAtTime(f0, t);
@@ -303,7 +354,9 @@ export function initAquariumAudio({ theme = 'tropical', getCreatures } = {}) {
         ? 2.5 + Math.random() * 4.5
         : theme === 'sweets'
           ? 0.9 + Math.random() * 2.0
-          : 1.5 + Math.random() * 2.5;
+          : theme === 'jellyfish'
+            ? 3.0 + Math.random() * 5.0   // 静寂を保つために長め
+            : 1.5 + Math.random() * 2.5;
       nextBubbleAt = time + interval;
     }
   }

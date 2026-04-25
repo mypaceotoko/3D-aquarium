@@ -25,6 +25,13 @@ const INFO = {
   megalodon:    { label: 'メガロドン',          desc: '体長18mに達したとされる太古の超巨大ザメ' },
   squid:        { label: 'ダイオウイカ',         desc: '深海に棲む最大級の無脊椎動物。巨大な眼と長い触腕を持つ' },
   innocence:    { label: 'イノセンス',           desc: 'スーツ姿のままスマホ片手に遊泳する謎の存在。時々サメに追われては大慌て' },
+  // jellyfish
+  'moon-jelly':    { label: 'ミズクラゲ',     desc: '4葉のゴナドが透ける半透明の傘。最も身近で美しい王道のクラゲ' },
+  'red-jelly':     { label: 'アカクラゲ',     desc: '16本の縞模様と長く流れる触手。刺胞毒は強く、別名「ハクションクラゲ」' },
+  'nomura-jelly':  { label: 'エチゼンクラゲ', desc: '直径2mに達する世界最大級のクラゲ。重さ200kg、悠然と漂う海の主' },
+  'spotted-jelly': { label: 'タコクラゲ',     desc: '白い水玉模様と8本のこん棒状の口腕。共生藻類で光合成もする' },
+  'crystal-jelly': { label: 'オワンクラゲ',   desc: '透明な傘とGFP蛍光タンパク質。脈打つたびに緑に光る、ノーベル賞の星' },
+
   // sweets
   taiyaki:             { label: 'たい焼き',         desc: '水中を泳ぐ甘い主役。尾びれをパタパタ、時々くるっと旋回' },
   'coelacanth-monaka': { label: 'シーラカンスモナカ', desc: 'レアな古代菓子。金色のオーラを纏いゆっくり漂う' },
