@@ -6,6 +6,7 @@ import { RedJellyfish }     from '../creatures/jellies/RedJellyfish.js';
 import { NomuraJellyfish }  from '../creatures/jellies/NomuraJellyfish.js';
 import { SpottedJellyfish } from '../creatures/jellies/SpottedJellyfish.js';
 import { CrystalJellyfish } from '../creatures/jellies/CrystalJellyfish.js';
+import { initObservation }  from '../interaction/observationManager.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // クラゲ幻想水槽 — まず動く最低限のシーン
@@ -73,6 +74,9 @@ export function launch() {
   orbit.minPolarAngle = 0.15;
   orbit.maxPolarAngle = Math.PI * 0.62;
 
+  // ── Observation system (タップで種名・追従) ───────────────────────────────
+  const obs = initObservation({ camera, orbit, canvas, getCreatures: () => creatures });
+
   // ── Lifecycle ────────────────────────────────────────────────────────────
   window.addEventListener('resize', () => {
     renderer.setSize(window.innerWidth, window.innerHeight, false);
@@ -91,7 +95,8 @@ export function launch() {
     const dt   = Math.min(clock.getDelta(), 0.05);
     const time = clock.elapsedTime;
     for (const c of creatures) c.update(dt, time, state);
-    orbit.update();
+    obs.update(dt);
+    if (!obs.isObserving) orbit.update();
     renderer.render(scene, camera);
   }
   loop();

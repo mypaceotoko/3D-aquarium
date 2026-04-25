@@ -16,6 +16,9 @@ const HIT_R = {
   taiyaki: 1.8, 'coelacanth-monaka': 2.6, 'crab-pan': 1.6,
   'goldfish-jelly': 1.5, 'tako-sen': 1.6, 'ebi-sen': 0.9,
   'mr-utsugi': 1.0,
+  // jellyfish (新水槽)
+  'moon-jelly':   2.4, 'red-jelly':    2.6, 'nomura-jelly': 6.5,
+  'spotted-jelly': 1.4, 'crystal-jelly': 1.5,
 };
 
 // ─── Per-species follow distance ─────────────────────────────────────────────
@@ -29,6 +32,9 @@ const FOLLOW_D = {
   taiyaki: 4, 'coelacanth-monaka': 5, 'crab-pan': 3.5,
   'goldfish-jelly': 3.5, 'tako-sen': 4, 'ebi-sen': 2.5,
   'mr-utsugi': 2.6,
+  // jellyfish (新水槽)
+  'moon-jelly': 4.5, 'red-jelly': 5, 'nomura-jelly': 14,
+  'spotted-jelly': 3, 'crystal-jelly': 3,
 };
 
 // ─── Main entry point ────────────────────────────────────────────────────────
