@@ -53,6 +53,9 @@ export function launch() {
   fillCyan.position.set(16, -2, 10);
   scene.add(fillCyan);
 
+  // ── God rays (上から差し込む薄紫〜シアンの光柱) ──────────────────────────
+  const rays = buildGodRays(scene, isMobile);
+
   // ── Creatures ────────────────────────────────────────────────────────────
   const creatures = [];
   const counts = isMobile
@@ -95,6 +98,7 @@ export function launch() {
     const dt   = Math.min(clock.getDelta(), 0.05);
     const time = clock.elapsedTime;
     for (const c of creatures) c.update(dt, time, state);
+    animateRays(rays, dt, time);
     obs.update(dt);
     if (!obs.isObserving) orbit.update();
     renderer.render(scene, camera);
@@ -103,6 +107,62 @@ export function launch() {
 }
 
 function addCreature(scene, c) { scene.add(c.mesh); return c; }
+
+// ─── God rays — 紫とシアンを混ぜた幻想的な光柱 ────────────────────────────
+function buildGodRays(scene, isMobile) {
+  const rayCount = isMobile ? 5 : 9;
+  const tex = makeRayTexture();
+  // 2色をランダム配分: 薄紫 / 淡シアン
+  const tints = [0xb088ff, 0x88c8ff, 0xc098ff, 0x70b8e8];
+  const group = new THREE.Group();
+  const rays = [];
+  for (let i = 0; i < rayCount; i++) {
+    const mat = new THREE.MeshBasicMaterial({
+      map: tex, transparent: true, blending: THREE.AdditiveBlending,
+      depthWrite: false, opacity: 0.22 + Math.random() * 0.18,
+      color: tints[i % tints.length], side: THREE.DoubleSide, fog: true,
+    });
+    const geo = new THREE.PlaneGeometry(7 + Math.random() * 5, 44);
+    const m = new THREE.Mesh(geo, mat);
+    const ang = (i / rayCount) * Math.PI * 2 + Math.random() * 0.5;
+    const r = 5 + Math.random() * 16;
+    m.position.set(Math.cos(ang) * r, 6, Math.sin(ang) * r);
+    m.rotation.y = Math.random() * Math.PI;
+    m.rotation.z = (Math.random() - 0.5) * 0.20;
+    m.userData.phase = Math.random() * Math.PI * 2;
+    m.userData.baseX = m.position.x;
+    m.userData.baseZ = m.position.z;
+    m.userData.baseOpacity = mat.opacity;
+    rays.push(m);
+    group.add(m);
+  }
+  scene.add(group);
+  return rays;
+}
+
+function makeRayTexture() {
+  const s = 128;
+  const c = document.createElement('canvas');
+  c.width = s; c.height = s;
+  const g = c.getContext('2d');
+  const grad = g.createRadialGradient(s/2, s/2, 0, s/2, s/2, s/2);
+  grad.addColorStop(0.00, 'rgba(255,255,255,0.95)');
+  grad.addColorStop(0.40, 'rgba(200,180,255,0.40)');
+  grad.addColorStop(1.00, 'rgba(40,20,80,0.0)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, s, s);
+  return new THREE.CanvasTexture(c);
+}
+
+function animateRays(rays, dt, time) {
+  for (const r of rays) {
+    r.position.x = r.userData.baseX + Math.sin(time * 0.10 + r.userData.phase) * 0.9;
+    r.position.z = r.userData.baseZ + Math.cos(time * 0.08 + r.userData.phase) * 0.7;
+    r.rotation.y += dt * 0.03;
+    // 緩やかな明滅
+    r.material.opacity = r.userData.baseOpacity * (0.85 + 0.15 * Math.sin(time * 0.5 + r.userData.phase));
+  }
+}
 
 // 仮の背景 — 紫〜深青のグラデーション
 function makeBgTexture() {
