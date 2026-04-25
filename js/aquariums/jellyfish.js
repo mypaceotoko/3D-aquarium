@@ -10,9 +10,9 @@ import { initObservation }  from '../interaction/observationManager.js';
 import { initAquariumAudio } from '../audio-aquarium.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// クラゲ幻想水槽 — まず動く最低限のシーン
-// 環境演出 (caustics / god rays / plankton / bubbles / 水面) は後続実装。
-// 観測UI / 音声 / 餌 も後続。
+// クラゲ幻想水槽 — 5種のクラゲのみが漂う、薄暮の幻想シーン
+// 紫×シアンの god rays、暗い砂底、漂うプランクトン、緩やかな泡、
+// D♭ペンタトニックの幻想チャイムで包む静寂のサウンドスケープ。
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function launch() {
