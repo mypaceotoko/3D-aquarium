@@ -272,24 +272,50 @@ function makeMrUtsugiMesh() {
   teeth.position.set(0.62, 1.90, 0);
   g.add(teeth);
 
-  // 髪（ボリューム多めのつんつん頭）
-  for (let i = 0; i < 16; i++) {
-    const tuft = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.30, 6), hairMat);
-    const a = (i / 16) * Math.PI * 1.2 - Math.PI * 0.6;
-    tuft.position.set(
-      Math.cos(a) * (0.12 + Math.random() * 0.08),
-      2.55 + Math.random() * 0.10,
-      Math.sin(a) * (0.34 + Math.random() * 0.08)
+  // 髪のキャップ（頭の上半分をしっかり覆う）— 剥げ防止
+  const hairCap = new THREE.Mesh(
+    new THREE.SphereGeometry(0.72, 22, 16, 0, Math.PI * 2, 0, Math.PI * 0.58),
+    hairMat
+  );
+  hairCap.position.set(0, 2.10, 0);
+  hairCap.scale.set(1.10, 1.06, 1.10);
+  hairCap.castShadow = true;
+  g.add(hairCap);
+
+  // つんつんスパイク（頭頂〜側頭部に密に分布）
+  for (let i = 0; i < 38; i++) {
+    const h = 0.22 + Math.random() * 0.20;
+    const tuft = new THREE.Mesh(
+      new THREE.ConeGeometry(0.085 + Math.random() * 0.045, h, 6),
+      hairMat
     );
-    tuft.rotation.z = (Math.random() - 0.5) * 0.5;
-    tuft.rotation.x = (Math.random() - 0.5) * 0.5;
+    // 上半球に均一分布（頭頂を密、側頭をやや疎）
+    const theta = Math.random() * Math.PI * 2;
+    const phi   = Math.random() * Math.PI * 0.50; // 0(頭頂) → ~90°(側頭)
+    const r = 0.70;
+    const px = Math.sin(phi) * Math.cos(theta) * r * 1.10;
+    const py = 2.10 + Math.cos(phi) * r * 1.06;
+    const pz = Math.sin(phi) * Math.sin(theta) * r * 1.10;
+    tuft.position.set(px, py + h * 0.30, pz);
+    // 外向きに少し倒す（splay）
+    tuft.rotation.z = -px * 0.55 + (Math.random() - 0.5) * 0.30;
+    tuft.rotation.x =  pz * 0.55 + (Math.random() - 0.5) * 0.30;
     g.add(tuft);
   }
-  // 後頭部のもっさり
-  const backHair = new THREE.Mesh(new THREE.SphereGeometry(0.55, 14, 12), hairMat);
-  backHair.position.set(-0.30, 2.18, 0);
-  backHair.scale.set(0.9, 0.85, 1.05);
+
+  // 後頭部の張り出し（リュック側）
+  const backHair = new THREE.Mesh(new THREE.SphereGeometry(0.42, 14, 12), hairMat);
+  backHair.position.set(-0.32, 2.20, 0);
+  backHair.scale.set(0.85, 0.95, 1.10);
   g.add(backHair);
+
+  // もみあげ（耳の前を縦に流す）
+  for (const sz of [1, -1]) {
+    const side = new THREE.Mesh(new THREE.SphereGeometry(0.18, 12, 10), hairMat);
+    side.position.set(0.10, 1.92, 0.50 * sz);
+    side.scale.set(0.55, 0.85, 0.55);
+    g.add(side);
+  }
 
   // ねじりハチマキ（赤）
   const band = new THREE.Mesh(new THREE.TorusGeometry(0.62, 0.085, 10, 24), bandMat);
