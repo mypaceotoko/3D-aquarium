@@ -23,16 +23,20 @@ export function initControls({
   onFeed,
   onObserve,
   onRelease,
+  tank,                 // optional bounds override for the food-drop plane
+  orbitDistance,        // optional { min, max } for OrbitControls zoom range
+  cinematicWaypoints,   // optional array overriding ambient camera waypoints
 }) {
   const canvas = renderer.domElement;
+  const TANK_BOUNDS = tank ?? TANK;
 
   // --- OrbitControls --------------------------------------------------
   const controls = new OrbitControls(camera, canvas);
   controls.enableDamping = true;
   controls.dampingFactor = 0.08;
   controls.enablePan = false;
-  controls.minDistance = 6;
-  controls.maxDistance = 55;
+  controls.minDistance = orbitDistance?.min ?? 6;
+  controls.maxDistance = orbitDistance?.max ?? 55;
   controls.minPolarAngle = 0.15;
   controls.maxPolarAngle = Math.PI * 0.62;
   controls.rotateSpeed = 0.6;
@@ -108,32 +112,47 @@ export function initControls({
 
     // 2) Empty water tap → drop food at ray intersection with a horizontal
     //    plane around the upper third of the tank.
-    const dropPlaneY = TANK.maxY - 2;
+    const dropPlaneY = TANK_BOUNDS.maxY - 2;
     const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -dropPlaneY);
     const point = new THREE.Vector3();
     if (ray.ray.intersectPlane(plane, point)) {
       // Clamp to tank bounds (slightly inset)
-      point.x = THREE.MathUtils.clamp(point.x, TANK.minX + 3, TANK.maxX - 3);
-      point.z = THREE.MathUtils.clamp(point.z, TANK.minZ + 3, TANK.maxZ - 3);
+      point.x = THREE.MathUtils.clamp(point.x, TANK_BOUNDS.minX + 3, TANK_BOUNDS.maxX - 3);
+      point.z = THREE.MathUtils.clamp(point.z, TANK_BOUNDS.minZ + 3, TANK_BOUNDS.maxZ - 3);
       onFeed?.(point);
     }
   }
 
   function creatureHitRadius(c) {
     switch (c.species) {
-      case 'leviathan':  return 7.0;
-      case 'pirarucu':   return 3.0;
-      case 'coelacanth': return 2.6;
-      case 'gar':        return 2.2;
-      case 'jellyfish':  return 1.6;
-      case 'trilobite':  return 1.2;
-      case 'isopod':     return 1.4;
-      default:           return 1.8;
+      case 'leviathan':    return 7.0;
+      case 'pirarucu':     return 3.0;
+      case 'coelacanth':   return 2.6;
+      case 'gar':          return 2.2;
+      case 'jellyfish':    return 1.6;
+      case 'trilobite':    return 1.2;
+      case 'isopod':       return 1.4;
+      case 'futabasaurus': return 14.0;
+      case 'opabinia':     return  7.0;
+      case 'anomalocaris': return 10.0;
+      case 'cameroceras':  return 14.0;
+      default:             return 1.8;
+    }
+  }
+
+  function followDistance(c) {
+    switch (c.species) {
+      case 'leviathan':    return 14;
+      case 'futabasaurus': return 42;
+      case 'cameroceras':  return 55;
+      case 'anomalocaris': return 38;
+      case 'opabinia':     return 26;
+      default:             return 5.5;
     }
   }
 
   function makeFollow(c) {
-    const dist = c.species === 'leviathan' ? 14 : 5.5;
+    const dist = followDistance(c);
     const offset = new THREE.Vector3(-dist, dist * 0.35, dist);
     return {
       creature: c,
@@ -143,7 +162,7 @@ export function initControls({
   }
 
   // --- Waypoints for ambient cinematic cam ---------------------------
-  const waypoints = [
+  const waypoints = cinematicWaypoints ?? [
     { pos: new THREE.Vector3(  0, 3.5, 36), look: new THREE.Vector3( 0, 0,  0) },
     { pos: new THREE.Vector3(-26, 4.0, 18), look: new THREE.Vector3( 2, 1, -2) },
     { pos: new THREE.Vector3( 22, 6.0,-18), look: new THREE.Vector3(-3, 2,  2) },
@@ -203,11 +222,17 @@ export function initControls({
         }
         const c = follow.creature;
         const center = c.getCenter(tmpV).clone();
-        // Anchor behind the creature along its heading so we "trail" it
-        const behind = c.heading ? c.heading.clone().multiplyScalar(-4.5) : new THREE.Vector3(0, 0, -4.5);
-        behind.y += 2.0;
-        behind.x += -3.0 * (c.heading?.z ?? 0);
-        behind.z +=  3.0 * (c.heading?.x ?? 0);
+        // Anchor behind the creature along its heading so we "trail" it.
+        // Trail distance scales with the follow distance so giant creatures
+        // aren't viewed from inside their own body.
+        const fd = followDistance(c);
+        const trail  = -Math.max(4.5, fd * 0.55);
+        const sideK  =  Math.max(3.0, fd * 0.30);
+        const liftY  =  Math.max(2.0, fd * 0.18);
+        const behind = c.heading ? c.heading.clone().multiplyScalar(trail) : new THREE.Vector3(0, 0, trail);
+        behind.y += liftY;
+        behind.x += -sideK * (c.heading?.z ?? 0);
+        behind.z +=  sideK * (c.heading?.x ?? 0);
         const camTarget = center.clone().add(behind);
 
         follow.blend = Math.min(1, follow.blend + dt * 0.8);
