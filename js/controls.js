@@ -132,10 +132,10 @@ export function initControls({
       case 'jellyfish':    return 1.6;
       case 'trilobite':    return 1.2;
       case 'isopod':       return 1.4;
-      case 'futabasaurus': return 14.0;
-      case 'opabinia':     return  7.0;
-      case 'anomalocaris': return 10.0;
-      case 'cameroceras':  return 14.0;
+      case 'futabasaurus': return 26.0;
+      case 'opabinia':     return  9.0;
+      case 'anomalocaris': return 14.0;
+      case 'cameroceras':  return 16.0;
       default:             return 1.8;
     }
   }
@@ -143,10 +143,10 @@ export function initControls({
   function followDistance(c) {
     switch (c.species) {
       case 'leviathan':    return 14;
-      case 'futabasaurus': return 42;
-      case 'cameroceras':  return 55;
-      case 'anomalocaris': return 38;
-      case 'opabinia':     return 26;
+      case 'futabasaurus': return 80;
+      case 'cameroceras':  return 60;
+      case 'anomalocaris': return 50;
+      case 'opabinia':     return 30;
       default:             return 5.5;
     }
   }
