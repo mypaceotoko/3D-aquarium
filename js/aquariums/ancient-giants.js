@@ -100,14 +100,49 @@ export function launch() {
   const pickAmbient = () => controls.selectSpecies(speciesPool[Math.floor(Math.random() * speciesPool.length)]);
   let ambientTimer = setInterval(pickAmbient, 14000); pickAmbient();
 
-  const btnAmbient = document.getElementById('btn-ambient'); const btnSound = document.getElementById('btn-sound'); const btnFeed = document.getElementById('btn-feed');
+  const ui = document.getElementById('ui');
+  const btnAmbient = document.getElementById('btn-ambient');
+  const btnSound = document.getElementById('btn-sound');
+  const btnFeed = document.getElementById('btn-feed');
+  const btnBright = document.getElementById('btn-bright');
+  const btnUiToggle = document.getElementById('btn-ui-toggle');
   const speciesBtns = [...document.querySelectorAll('.species-btn')];
 
-  btnAmbient.onclick = () => { state.ambient = !state.ambient; btnAmbient.classList.toggle('on', state.ambient); if (state.ambient) { pickAmbient(); ambientTimer = setInterval(pickAmbient, 14000); } else clearInterval(ambientTimer); };
-  btnSound.onclick = () => { state.soundOn = !state.soundOn; btnSound.classList.toggle('on', state.soundOn); if (state.soundOn) audio.resume(); };
-  btnFeed.onclick = () => sceneApi.bubbles.spawnAt(0, 2, 0, 12);
+  btnAmbient.setAttribute('aria-pressed', 'true');
+  btnSound.setAttribute('aria-pressed', 'false');
+  btnBright.textContent = '明 明るめ';
+  btnUiToggle.setAttribute('aria-expanded', 'true');
+  btnAmbient.addEventListener('click', () => {
+    state.ambient = !state.ambient;
+    btnAmbient.setAttribute('aria-pressed', String(state.ambient));
+    btnAmbient.textContent = state.ambient ? '鑑賞 ON' : '鑑賞 OFF';
+    if (state.ambient) {
+      pickAmbient();
+      ambientTimer = setInterval(pickAmbient, 14000);
+    } else {
+      clearInterval(ambientTimer);
+    }
+  });
+  btnSound.addEventListener('click', () => {
+    state.soundOn = !state.soundOn;
+    btnSound.setAttribute('aria-pressed', String(state.soundOn));
+    btnSound.textContent = state.soundOn ? '音 ON' : '音 OFF';
+    if (state.soundOn) audio.resume();
+  });
+  btnFeed.addEventListener('click', () => sceneApi.bubbles.spawnAt(0, 2, 0, 12));
+  // Keep these common UI buttons functional in this aquarium too.
+  btnBright.addEventListener('click', () => {
+    renderer.toneMappingExposure = renderer.toneMappingExposure >= 1.52 ? 1.24 : 1.52;
+    btnBright.textContent = renderer.toneMappingExposure >= 1.52 ? '明 明るめ' : '明 標準';
+  });
+  btnUiToggle.addEventListener('click', () => {
+    const collapsed = ui.classList.toggle('collapsed');
+    btnUiToggle.setAttribute('aria-expanded', String(!collapsed));
+    btnUiToggle.textContent = collapsed ? '▴' : '▾';
+    btnUiToggle.title = collapsed ? 'メニューを開く' : 'メニューを閉じる';
+  });
   speciesBtns.forEach((b) => {
-    b.onclick = () => controls.selectSpecies(b.dataset.species);
+    b.addEventListener('click', () => controls.selectSpecies(b.dataset.species));
   });
 
 
