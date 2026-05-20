@@ -19,6 +19,8 @@ const HIT_R = {
   // jellyfish (新水槽)
   'moon-jelly':   2.4, 'red-jelly':    2.6, 'nomura-jelly': 6.5,
   'spotted-jelly': 1.4, 'crystal-jelly': 1.5,
+  // ancient giants
+  futabasaurus: 16.0, opabinia: 8.0, anomalocaris: 10.0, cameroceras: 14.0,
 };
 
 // ─── Per-species follow distance ─────────────────────────────────────────────
@@ -35,6 +37,8 @@ const FOLLOW_D = {
   // jellyfish (新水槽)
   'moon-jelly': 4.5, 'red-jelly': 5, 'nomura-jelly': 14,
   'spotted-jelly': 3, 'crystal-jelly': 3,
+  // ancient giants
+  futabasaurus: 30, opabinia: 14, anomalocaris: 20, cameroceras: 26,
 };
 
 // ─── Main entry point ────────────────────────────────────────────────────────

@@ -9,7 +9,13 @@ const INFO = {
   gar:          { label: 'アリゲーターガー',     desc: '恐竜時代から姿が変わらない生きた化石' },
   pirarucu:     { label: 'ピラルク',           desc: '世界最大級の淡水魚。アマゾン川の主' },
   tamoto:       { label: '田本',               desc: 'マスク姿で深海を漂う謎のスイマー。普段は底でスマホ三昧、三葉虫や大王具足虫が近づくと慌てて砂に潜る。餌が落ちると誰より早く突っ込む' },
-  // tropical
+  
+  // ancient giants
+  futabasaurus: { label: 'フタバスズキリュウ', desc: '白亜紀後期の日本近海に生息した首長竜。長い首で獲物を追う巨体ハンター' },
+  opabinia:     { label: 'オパビニア',         desc: 'カンブリア紀を象徴する奇怪な生物。5つの眼と掴む口吻を持つ' },
+  anomalocaris: { label: 'アノマロカリス',     desc: 'カンブリア紀の頂点捕食者。前部の捕獲肢で獲物を捉える遊泳者' },
+  cameroceras:  { label: 'カメロケラス',       desc: '古生代の海を支配した巨大オウムガイ類。円錐殻を曳く圧倒的シルエット' },
+// tropical
   clownfish:    { label: 'クマノミ',           desc: 'イソギンチャクと共生する橙色の守護者' },
   'neon-tetra': { label: 'ネオンテトラ',        desc: '青と赤の蛍光帯が輝く熱帯魚の宝石' },
   'sea-turtle': { label: 'ウミガメ',           desc: '数十年を生きる海の旅人。生まれた浜に戻る' },
