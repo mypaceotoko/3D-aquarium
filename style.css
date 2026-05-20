@@ -72,8 +72,10 @@ html, body {
   transition: opacity 0.9s ease, padding 0.25s ease, border-radius 0.25s ease;
   max-width: calc(100vw - 20px);
   justify-content: center;
+  z-index: 120;
+  pointer-events: auto;
 }
-.ui.dim { opacity: 0.18; }
+.ui.dim { opacity: 0.42; }
 .ui:hover, .ui:focus-within { opacity: 1; }
 
 .ui-body {
