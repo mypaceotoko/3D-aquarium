@@ -74,7 +74,7 @@ export function launch() {
   const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || window.matchMedia?.('(max-width: 780px)').matches;
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: !isMobile, powerPreference: 'high-performance', alpha: false });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isMobile ? 1.25 : 1.5)); renderer.setSize(window.innerWidth, window.innerHeight, false);
-  renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.24;
+  renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.52;
   if (!isMobile) { renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; }
 
   const scene = new THREE.Scene();
@@ -101,9 +101,15 @@ export function launch() {
   let ambientTimer = setInterval(pickAmbient, 14000); pickAmbient();
 
   const btnAmbient = document.getElementById('btn-ambient'); const btnSound = document.getElementById('btn-sound'); const btnFeed = document.getElementById('btn-feed');
+  const speciesBtns = [...document.querySelectorAll('.species-btn')];
+
   btnAmbient.onclick = () => { state.ambient = !state.ambient; btnAmbient.classList.toggle('on', state.ambient); if (state.ambient) { pickAmbient(); ambientTimer = setInterval(pickAmbient, 14000); } else clearInterval(ambientTimer); };
   btnSound.onclick = () => { state.soundOn = !state.soundOn; btnSound.classList.toggle('on', state.soundOn); if (state.soundOn) audio.resume(); };
   btnFeed.onclick = () => sceneApi.bubbles.spawnAt(0, 2, 0, 12);
+  speciesBtns.forEach((b) => {
+    b.onclick = () => controls.selectSpecies(b.dataset.species);
+  });
+
 
   const clock = new THREE.Clock(); let paused = false;
   document.addEventListener('visibilitychange', () => { paused = document.hidden; });
