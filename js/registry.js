@@ -45,7 +45,7 @@ export const AQUARIUMS = [
   {
     id:       'ancient-giants',
     title:    '太古巨獣・超巨大水槽',
-    desc:     '過去最大スケールの展示水槽。リヴァイアサン、シーラカンス、ダイオウグソクムシ、三葉虫が圧倒的サイズで遊泳する、太古の海のシアター。',
+    desc:     '過去最大スケールの展示水槽。フタバスズキリュウ、オパビニア、アノマロカリス、カメロケラス——4体だけが圧倒的サイズで遊泳する、太古の海のシアター。',
     gradient: 'linear-gradient(155deg,#000c18 0%,#072748 42%,#1d4f72 100%)',
     accent:   '#8ef2ff',
     launch:   () => import('./aquariums/ancient-giants.js').then(m => m.launch()),

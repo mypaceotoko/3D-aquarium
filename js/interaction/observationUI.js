@@ -15,7 +15,8 @@ const INFO = {
   opabinia:     { label: 'オパビニア',         desc: 'カンブリア紀を象徴する奇怪な生物。5つの眼と掴む口吻を持つ' },
   anomalocaris: { label: 'アノマロカリス',     desc: 'カンブリア紀の頂点捕食者。前部の捕獲肢で獲物を捉える遊泳者' },
   cameroceras:  { label: 'カメロケラス',       desc: '古生代の海を支配した巨大オウムガイ類。円錐殻を曳く圧倒的シルエット' },
-// tropical
+
+  // tropical
   clownfish:    { label: 'クマノミ',           desc: 'イソギンチャクと共生する橙色の守護者' },
   'neon-tetra': { label: 'ネオンテトラ',        desc: '青と赤の蛍光帯が輝く熱帯魚の宝石' },
   'sea-turtle': { label: 'ウミガメ',           desc: '数十年を生きる海の旅人。生まれた浜に戻る' },
