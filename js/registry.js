@@ -5,7 +5,7 @@ export const AQUARIUMS = [
   {
     id:       'deep-sea',
     title:    '深海ミステリー水槽',
-    desc:     '神秘的な深海の世界。古代生物とリヴァイアサンが眠る、暗く壮大な海。',
+    desc:     '神秘的な深海の世界。リヴァイアサン、シーラカンス、アリゲーターガー、ピラルク、クラゲ、三葉虫、ダイオウグソクムシ——古代から生き続ける命たちが棲む、暗く壮大な海底の宇宙。',
     gradient: 'linear-gradient(155deg,#020d14 0%,#062030 55%,#041c28 100%)',
     accent:   '#00d8b8',
     launch:   () => import('./main.js').then(m => m.launch()),
@@ -45,7 +45,7 @@ export const AQUARIUMS = [
   {
     id:       'ancient-giants',
     title:    '太古巨獣・超巨大水槽',
-    desc:     '過去最大スケールの展示水槽。リヴァイアサン、シーラカンス、ダイオウグソクムシ、三葉虫が圧倒的サイズで遊泳する、太古の海のシアター。',
+    desc:     '過去最大スケールの展示水槽。フタバスズキリュウ、アノマロカリス、カメロケラス、オパビニア——カンブリア紀から白亜紀を制した太古の覇者たちが、圧倒的なスケールで泳ぎ回る、失われた海のシアター。',
     gradient: 'linear-gradient(155deg,#000c18 0%,#072748 42%,#1d4f72 100%)',
     accent:   '#8ef2ff',
     launch:   () => import('./aquariums/ancient-giants.js').then(m => m.launch()),
