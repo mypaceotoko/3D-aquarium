@@ -153,51 +153,70 @@ function makePlesiosaurTexture() {
   return tex;
 }
 
-/** Iridescent purple/violet chitin texture for Opabinia. */
+/** Orange-brown segmented chitin texture for Opabinia (Burgess Shale style). */
 function makeOpabiniaTexture() {
-  const W = 512, H = 256;
+  const W = 1024, H = 256;
   const c = document.createElement('canvas');
   c.width = W; c.height = H;
   const g = c.getContext('2d');
 
   const grad = g.createLinearGradient(0, 0, 0, H);
-  grad.addColorStop(0.00, '#1a0a30');
-  grad.addColorStop(0.30, '#3a1a5c');
-  grad.addColorStop(0.55, '#542d80');
-  grad.addColorStop(0.80, '#7a4cb0');
-  grad.addColorStop(1.00, '#a878d4');
+  grad.addColorStop(0.00, '#3a1f0c');
+  grad.addColorStop(0.25, '#6a3a18');
+  grad.addColorStop(0.55, '#a06030');
+  grad.addColorStop(0.80, '#c88858');
+  grad.addColorStop(1.00, '#e0b48c');
   g.fillStyle = grad;
   g.fillRect(0, 0, W, H);
 
-  // Segmented bands across length
-  for (let i = 1; i < 16; i++) {
-    const x = W * (i / 16);
-    g.fillStyle = 'rgba(20, 8, 38, 0.30)';
-    g.fillRect(x - 2, 0, 4, H);
-    g.fillStyle = 'rgba(200, 160, 240, 0.10)';
-    g.fillRect(x + 2, 0, 2, H);
+  // Crisp segmented ring bands (15 visible somites)
+  for (let i = 1; i < 18; i++) {
+    const x = W * (i / 18);
+    g.fillStyle = 'rgba(28, 12, 4, 0.45)';
+    g.fillRect(x - 3, 0, 6, H);
+    g.fillStyle = 'rgba(255, 220, 170, 0.18)';
+    g.fillRect(x + 3, 0, 2, H);
   }
 
-  // Iridescent oily highlights
+  // Faint darker dorsal mottling (more pronounced on top)
+  for (let i = 0; i < 90; i++) {
+    const x = Math.random() * W;
+    const y = Math.random() * H * 0.55;
+    const r = 6 + Math.random() * 22;
+    const rg = g.createRadialGradient(x, y, 0, x, y, r);
+    rg.addColorStop(0, 'rgba(20, 8, 0, 0.22)');
+    rg.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    g.fillStyle = rg;
+    g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+  }
+
+  // Pale belly highlight
   g.globalCompositeOperation = 'screen';
-  for (let i = 0; i < 80; i++) {
+  const belly = g.createLinearGradient(0, H * 0.6, 0, H);
+  belly.addColorStop(0, 'rgba(255, 220, 180, 0)');
+  belly.addColorStop(1, 'rgba(255, 230, 200, 0.30)');
+  g.fillStyle = belly;
+  g.fillRect(0, H * 0.6, W, H * 0.4);
+
+  // Subtle chitin sheen highlights
+  for (let i = 0; i < 50; i++) {
     const x = Math.random() * W;
     const y = Math.random() * H;
-    const r = 20 + Math.random() * 50;
-    const hue = 200 + Math.random() * 80;
+    const r = 18 + Math.random() * 40;
     const rg = g.createRadialGradient(x, y, 0, x, y, r);
-    rg.addColorStop(0,   `hsla(${hue}, 90%, 70%, 0.18)`);
-    rg.addColorStop(0.5, `hsla(${hue + 30}, 80%, 60%, 0.08)`);
-    rg.addColorStop(1,   'rgba(0,0,0,0)');
+    rg.addColorStop(0, 'rgba(255, 220, 170, 0.14)');
+    rg.addColorStop(1, 'rgba(0,0,0,0)');
     g.fillStyle = rg;
     g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
   }
   g.globalCompositeOperation = 'source-over';
-  addNoise(g, W, H, 10);
+  addNoise(g, W, H, 12);
 
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 4;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.ClampToEdgeWrapping;
   return tex;
 }
 
@@ -388,86 +407,112 @@ export class Futabasaurus extends Creature {
     body.castShadow = !!opts.castShadow;
     group.add(body);
 
-    // ── Long neck (tapered curved tube, S-curve upward) ───────────────────
+    // ── Long S-curved neck (the iconic plesiosaur silhouette) ─────────────
     const neckMat = new THREE.MeshPhysicalMaterial({
       color: 0x9bb5be, map: bodyTex, roughness: 0.60, metalness: 0.04,
       clearcoat: 0.40, clearcoatRoughness: 0.36,
     });
     const neckPts = [
-      new THREE.Vector3(+L * 0.17, +L * 0.02, 0),
-      new THREE.Vector3(+L * 0.27, +L * 0.10, 0),
-      new THREE.Vector3(+L * 0.36, +L * 0.16, 0),
-      new THREE.Vector3(+L * 0.44, +L * 0.21, 0),
-      new THREE.Vector3(+L * 0.50, +L * 0.24, 0),
+      new THREE.Vector3(+L * 0.15, +L * 0.02, 0),
+      new THREE.Vector3(+L * 0.24, +L * 0.06, 0),
+      new THREE.Vector3(+L * 0.32, +L * 0.13, 0),
+      new THREE.Vector3(+L * 0.40, +L * 0.20, 0),
+      new THREE.Vector3(+L * 0.48, +L * 0.26, 0),
+      new THREE.Vector3(+L * 0.55, +L * 0.31, 0),
+      new THREE.Vector3(+L * 0.61, +L * 0.34, 0),
     ];
-    const neckGeo = makeTaperedTube(neckPts, { rBase: 0.45 * scale, rTip: 0.30 * scale, segs: 28, radial: 14 });
+    const neckGeo = makeTaperedTube(neckPts, { rBase: 0.55 * scale, rTip: 0.32 * scale, segs: 40, radial: 16 });
     const neck = new THREE.Mesh(neckGeo, neckMat);
     group.add(neck);
 
-    // ── Head ──────────────────────────────────────────────────────────────
+    // ── Head (larger, elongated muzzle) ───────────────────────────────────
     const headMat = new THREE.MeshPhysicalMaterial({
       color: 0xa8c0c8, roughness: 0.50, metalness: 0.05,
       clearcoat: 0.42, clearcoatRoughness: 0.30,
     });
-    const headGeo = new THREE.SphereGeometry(0.46 * scale, 16, 12);
-    headGeo.scale(1.35, 0.85, 0.85);
+    const headGeo = new THREE.SphereGeometry(0.55 * scale, 18, 14);
+    headGeo.scale(1.55, 0.78, 0.85);
     const head = new THREE.Mesh(headGeo, headMat);
-    head.position.set(+L * 0.54, +L * 0.255, 0);
-    head.rotation.z = -0.18;
+    head.position.set(+L * 0.66, +L * 0.355, 0);
+    head.rotation.z = -0.22;
     group.add(head);
 
-    // Snout cap (slight elongation)
-    const snoutGeo = new THREE.ConeGeometry(0.35 * scale, 0.55 * scale, 14);
+    // Long snout cap
+    const snoutGeo = new THREE.ConeGeometry(0.40 * scale, 0.75 * scale, 14);
     snoutGeo.rotateZ(-Math.PI / 2);
-    snoutGeo.translate(0.42 * scale, 0, 0);
+    snoutGeo.translate(0.55 * scale, 0, 0);
     const snout = new THREE.Mesh(snoutGeo, headMat);
     snout.position.copy(head.position);
     snout.rotation.z = head.rotation.z;
     group.add(snout);
 
-    // Eyes
+    // Lower jaw — a flattened wedge below the muzzle, suggesting open mouth
+    const jawGeo = new THREE.ConeGeometry(0.32 * scale, 0.60 * scale, 12);
+    jawGeo.rotateZ(-Math.PI / 2);
+    jawGeo.translate(0.55 * scale, -0.10 * scale, 0);
+    const jaw = new THREE.Mesh(jawGeo, headMat);
+    jaw.position.copy(head.position);
+    jaw.rotation.z = head.rotation.z - 0.10;
+    group.add(jaw);
+
+    // Golden eyes (signature amber)
     const eyeMat = new THREE.MeshPhysicalMaterial({
-      color: 0x180810, roughness: 0.06, metalness: 0.0,
-      clearcoat: 0.95, clearcoatRoughness: 0.04,
-      emissive: new THREE.Color(0xd8b840), emissiveIntensity: 0.7,
+      color: 0xe0a020, roughness: 0.10, metalness: 0.05,
+      clearcoat: 0.95, clearcoatRoughness: 0.05,
+      emissive: new THREE.Color(0xc88820), emissiveIntensity: 0.95,
     });
+    const pupilMat = new THREE.MeshBasicMaterial({ color: 0x040206 });
     for (const side of [-1, 1]) {
-      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.10 * scale, 10, 8), eyeMat);
-      eye.position.set(+L * 0.56, +L * 0.27, 0.30 * scale * side);
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.14 * scale, 12, 10), eyeMat);
+      eye.position.set(+L * 0.66, +L * 0.380, 0.34 * scale * side);
       group.add(eye);
+      const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.075 * scale, 8, 6), pupilMat);
+      pupil.position.set(+L * 0.682, +L * 0.385, 0.42 * scale * side);
+      group.add(pupil);
     }
 
-    // Tiny teeth ridge (small white cones along jaw)
+    // Teeth ridge along upper jaw (small white triangles)
     const toothMat = new THREE.MeshStandardMaterial({ color: 0xf0e8d4, roughness: 0.4, metalness: 0.05 });
-    for (let i = 0; i < 10; i++) {
-      const t = i / 9;
+    for (let i = 0; i < 12; i++) {
+      const t = i / 11;
       for (const side of [-1, 1]) {
-        const tooth = new THREE.Mesh(new THREE.ConeGeometry(0.022 * scale, 0.10 * scale, 6), toothMat);
+        const tooth = new THREE.Mesh(new THREE.ConeGeometry(0.026 * scale, 0.12 * scale, 6), toothMat);
         tooth.position.set(
-          THREE.MathUtils.lerp(+L * 0.54, +L * 0.62, t),
-          +L * 0.243 - 0.012,
-          0.18 * scale * side - 0.04 * scale * (1 - t),
+          THREE.MathUtils.lerp(+L * 0.66, +L * 0.78, t),
+          +L * 0.340 - 0.012 * scale,
+          0.20 * scale * side - 0.05 * scale * (1 - t),
         );
         tooth.rotation.x = Math.PI;
         group.add(tooth);
       }
     }
 
-    // ── Tail (long, tapered, curving down) ─────────────────────────────────
+    // ── Tail (long, tapered, curving down — true plesiosaur proportion) ───
     const tailMat = injectBend(new THREE.MeshPhysicalMaterial({
       color: 0xffffff, map: bodyTex, roughness: 0.55, metalness: 0.05,
       clearcoat: 0.45, clearcoatRoughness: 0.32,
     }), uniforms);
     const tailPts = [
-      new THREE.Vector3(-L * 0.30, -L * 0.005, 0),
-      new THREE.Vector3(-L * 0.40, +L * 0.000, 0),
-      new THREE.Vector3(-L * 0.50, +L * 0.012, 0),
-      new THREE.Vector3(-L * 0.60, +L * 0.024, 0),
-      new THREE.Vector3(-L * 0.68, +L * 0.035, 0),
+      new THREE.Vector3(-L * 0.28, -L * 0.005, 0),
+      new THREE.Vector3(-L * 0.42, +L * 0.012, 0),
+      new THREE.Vector3(-L * 0.55, +L * 0.030, 0),
+      new THREE.Vector3(-L * 0.68, +L * 0.046, 0),
+      new THREE.Vector3(-L * 0.78, +L * 0.058, 0),
+      new THREE.Vector3(-L * 0.86, +L * 0.066, 0),
     ];
-    const tailGeo = makeTaperedTube(tailPts, { rBase: 0.78 * scale, rTip: 0.06 * scale, segs: 26, radial: 14 });
+    const tailGeo = makeTaperedTube(tailPts, { rBase: 0.85 * scale, rTip: 0.05 * scale, segs: 36, radial: 14 });
     const tail = new THREE.Mesh(tailGeo, tailMat);
     group.add(tail);
+
+    // ── Dorsal ridge — subtle row of small bumps along the back ────────────
+    const ridgeMat = new THREE.MeshStandardMaterial({ color: 0x2a4658, roughness: 0.55, metalness: 0.06 });
+    for (let i = 0; i < 9; i++) {
+      const t = i / 8;
+      const x = THREE.MathUtils.lerp(-L * 0.25, +L * 0.12, t);
+      const bump = new THREE.Mesh(new THREE.ConeGeometry(0.08 * scale, 0.16 * scale, 6), ridgeMat);
+      bump.position.set(x, +L * 0.12, 0);
+      group.add(bump);
+    }
 
     // ── Four flippers (paddle-shaped, extruded with bevel) ─────────────────
     const flipperMat = injectBend(new THREE.MeshPhysicalMaterial({
@@ -476,43 +521,43 @@ export class Futabasaurus extends Creature {
       side: THREE.DoubleSide,
     }), uniforms);
 
-    function makeFlipperShape(L_, scale_) {
-      const W = 2.4 * scale_;
-      const H = 0.85 * scale_;
+    function makeFlipperShape(scale_) {
+      const W = 3.0 * scale_;
+      const H = 1.05 * scale_;
       const s = new THREE.Shape();
       s.moveTo(0.10 * W, 0);
-      s.quadraticCurveTo( 0.05 * W,  H * 1.05, -0.55 * W, H * 0.92);
-      s.quadraticCurveTo(-1.10 * W,  H * 0.45, -1.20 * W, 0);
-      s.quadraticCurveTo(-1.10 * W, -H * 0.18, -0.40 * W, -H * 0.05);
+      s.quadraticCurveTo( 0.05 * W,  H * 1.12, -0.55 * W, H * 0.96);
+      s.quadraticCurveTo(-1.20 * W,  H * 0.42, -1.32 * W, 0);
+      s.quadraticCurveTo(-1.20 * W, -H * 0.22, -0.40 * W, -H * 0.05);
       s.lineTo(0.10 * W, 0);
       const geo = new THREE.ExtrudeGeometry(s, {
-        depth: 0.18 * scale_,
+        depth: 0.22 * scale_,
         bevelEnabled: true,
         bevelSegments: 2,
-        bevelSize: 0.05 * scale_,
-        bevelThickness: 0.05 * scale_,
+        bevelSize: 0.06 * scale_,
+        bevelThickness: 0.06 * scale_,
         steps: 1,
-        curveSegments: 12,
+        curveSegments: 14,
       });
-      geo.translate(0, 0, -0.09 * scale_);
+      geo.translate(0, 0, -0.11 * scale_);
       return geo;
     }
-    const flipperGeo = makeFlipperShape(L, scale);
+    const flipperGeo = makeFlipperShape(scale);
 
     const flippers = [];
     const flipperDefs = [
-      // front L, front R, rear L, rear R
-      { x: +L * 0.08,  z: +1.55 * scale,  side: +1, isFront: true  },
-      { x: +L * 0.08,  z: -1.55 * scale,  side: -1, isFront: true  },
-      { x: -L * 0.18,  z: +1.45 * scale,  side: +1, isFront: false },
-      { x: -L * 0.18,  z: -1.45 * scale,  side: -1, isFront: false },
+      // front L, front R, rear L, rear R — pushed slightly further out for
+      // the larger flipper silhouette
+      { x: +L * 0.08,  z: +1.75 * scale,  side: +1, isFront: true  },
+      { x: +L * 0.08,  z: -1.75 * scale,  side: -1, isFront: true  },
+      { x: -L * 0.20,  z: +1.65 * scale,  side: +1, isFront: false },
+      { x: -L * 0.20,  z: -1.65 * scale,  side: -1, isFront: false },
     ];
     for (const def of flipperDefs) {
       const geo = flipperGeo.clone();
       if (def.side < 0) geo.scale(1, 1, -1);
       const f = new THREE.Mesh(geo, flipperMat);
       f.position.set(def.x, -0.35 * scale, def.z);
-      // Pitch the flipper down a bit
       f.rotation.y = def.side > 0 ? -0.5 : 0.5;
       f.rotation.z = def.side > 0 ? -0.18 : 0.18;
       f.userData.baseRY = f.rotation.y;
@@ -536,11 +581,11 @@ export class Futabasaurus extends Creature {
         THREE.MathUtils.randFloatSpread(GIANT_TANK.maxZ * 0.6),
       ),
       cfg: {
-        speed: 2.4, maxAccel: 0.7, turnRate: 0.55,
-        depthMin: GIANT_TANK.floorY + 10,
-        depthMax: GIANT_TANK.maxY - 6,
-        wanderMin: 8, wanderMax: 14,
-        wallMargin: 22,
+        speed: 3.6, maxAccel: 0.85, turnRate: 0.50,
+        depthMin: GIANT_TANK.floorY + 8,
+        depthMax: GIANT_TANK.maxY - 5,
+        wanderMin: 12, wanderMax: 22,
+        wallMargin: 18,
         bounds: GIANT_TANK,
         facesVelocity: true,
       },
@@ -551,9 +596,9 @@ export class Futabasaurus extends Creature {
     this._glow      = glow;
     this._pitchT    = 0;
     this._behavior  = 'CRUISE';
-    this._behaviorT = THREE.MathUtils.randFloat(8, 14);
+    this._behaviorT = THREE.MathUtils.randFloat(10, 18);
     this._circleA   = Math.random() * Math.PI * 2;
-    this._circleR   = 80;
+    this._circleR   = 110;
   }
 
   onUpdate(dt, time) {
@@ -588,11 +633,17 @@ export class Futabasaurus extends Creature {
     // Behavior cycle for varied roaming
     this._behaviorT -= dt;
     if (this._behaviorT <= 0) {
-      this._behaviorT = THREE.MathUtils.randFloat(10, 20);
+      this._behaviorT = THREE.MathUtils.randFloat(14, 26);
       const roll = Math.random();
-      this._behavior = roll < 0.45 ? 'CRUISE' : roll < 0.72 ? 'CIRCLE' : roll < 0.86 ? 'DIVE' : 'ASCENT';
+      // Favour sweeping CIRCLE / cross-tank PATROL paths so it really fills
+      // the volume on screen
+      this._behavior = roll < 0.32 ? 'CRUISE'
+                     : roll < 0.62 ? 'CIRCLE'
+                     : roll < 0.78 ? 'PATROL'
+                     : roll < 0.90 ? 'ASCENT'
+                     :               'DIVE';
       if (this._behavior === 'CIRCLE') {
-        this._circleR = THREE.MathUtils.randFloat(55, 110);
+        this._circleR = THREE.MathUtils.randFloat(80, 150);
         this._circleA = Math.atan2(this.pos.z, this.pos.x);
       }
       this.pickTarget();
@@ -611,27 +662,39 @@ export class Futabasaurus extends Creature {
       case 'DIVE':
         this.target.set(
           THREE.MathUtils.randFloat(b.minX + m, b.maxX - m),
-          THREE.MathUtils.randFloat(b.floorY + 8, b.floorY + 16),
+          THREE.MathUtils.randFloat(b.floorY + 10, b.floorY + 22),
           THREE.MathUtils.randFloat(b.minZ + m, b.maxZ - m),
         );
-        this.wanderT = THREE.MathUtils.randFloat(8, 14);
+        this.wanderT = THREE.MathUtils.randFloat(10, 18);
         break;
       case 'ASCENT':
         this.target.set(
           THREE.MathUtils.randFloat(b.minX + m, b.maxX - m),
-          THREE.MathUtils.randFloat(b.maxY - 14, b.maxY - 5),
+          THREE.MathUtils.randFloat(b.maxY - 16, b.maxY - 5),
           THREE.MathUtils.randFloat(b.minZ + m, b.maxZ - m),
         );
-        this.wanderT = THREE.MathUtils.randFloat(8, 14);
+        this.wanderT = THREE.MathUtils.randFloat(10, 18);
         break;
+      case 'PATROL': {
+        // Sweep diagonally to a far corner of the tank
+        const tx = (this.pos.x > 0 ? -1 : 1) * (b.maxX - m);
+        const tz = (this.pos.z > 0 ? -1 : 1) * (b.maxZ - m);
+        this.target.set(
+          tx,
+          THREE.MathUtils.randFloat(-8, 24),
+          tz,
+        );
+        this.wanderT = THREE.MathUtils.randFloat(12, 20);
+        break;
+      }
       case 'CIRCLE':
-        this._circleA += (Math.random() < 0.5 ? 1 : -1) * 1.1;
+        this._circleA += (Math.random() < 0.5 ? 1 : -1) * 1.0;
         this.target.set(
           THREE.MathUtils.clamp(Math.cos(this._circleA) * this._circleR, b.minX + m, b.maxX - m),
-          THREE.MathUtils.randFloat(-4, 18),
+          THREE.MathUtils.randFloat(-6, 20),
           THREE.MathUtils.clamp(Math.sin(this._circleA) * this._circleR, b.minZ + m, b.maxZ - m),
         );
-        this.wanderT = THREE.MathUtils.randFloat(5, 9);
+        this.wanderT = THREE.MathUtils.randFloat(6, 11);
         break;
       default:
         super.pickTarget();
@@ -684,127 +747,178 @@ export class Opabinia extends Creature {
     const bodyMat = injectBend(new THREE.MeshPhysicalMaterial({
       color:              0xffffff,
       map:                opaTex,
-      roughness:          0.35,
-      metalness:          0.20,
-      clearcoat:          0.85,
-      clearcoatRoughness: 0.15,
-      emissive:           new THREE.Color(0x180a30),
-      emissiveIntensity:  0.30,
+      roughness:          0.42,
+      metalness:          0.10,
+      clearcoat:          0.55,
+      clearcoatRoughness: 0.25,
+      emissive:           new THREE.Color(0x2a1004),
+      emissiveIntensity:  0.15,
     }), uniforms);
     const body = new THREE.Mesh(bodyGeo, bodyMat);
     body.castShadow = !!opts.castShadow;
     group.add(body);
 
-    // ── 5 stalked eyes (signature feature) ─────────────────────────────────
-    const stalkMat = new THREE.MeshStandardMaterial({ color: 0x3a1c5c, roughness: 0.5, metalness: 0.15 });
+    // ── 5 stalked eyes (the signature feature — mushroom-like black globes) ─
+    const stalkMat = new THREE.MeshStandardMaterial({ color: 0x5a3618, roughness: 0.55, metalness: 0.08 });
     const eyeMat = new THREE.MeshPhysicalMaterial({
-      color: 0x080208, roughness: 0.05, metalness: 0.0,
-      clearcoat: 0.95, clearcoatRoughness: 0.05,
-      emissive: new THREE.Color(0xa64df0), emissiveIntensity: 1.6,
+      color: 0x040406, roughness: 0.08, metalness: 0.0,
+      clearcoat: 1.0, clearcoatRoughness: 0.04,
+      emissive: new THREE.Color(0x141820), emissiveIntensity: 0.20,
     });
+    const eyeHighlightMat = new THREE.MeshBasicMaterial({ color: 0xe8f4ff });
+    // 5 eyes arranged in a row across the dorsal surface, splayed outward
     const eyePositions = [
-      { x: +L * 0.30, z:  0.00,           a:  0.00 },
-      { x: +L * 0.28, z: +0.45 * scale,   a:  0.35 },
-      { x: +L * 0.28, z: -0.45 * scale,   a: -0.35 },
-      { x: +L * 0.22, z: +0.70 * scale,   a:  0.55 },
-      { x: +L * 0.22, z: -0.70 * scale,   a: -0.55 },
+      { x: +L * 0.36, z:  0.00,           tilt:  0.00, lift: 1.00 },
+      { x: +L * 0.34, z: +0.55 * scale,   tilt:  0.32, lift: 0.94 },
+      { x: +L * 0.34, z: -0.55 * scale,   tilt: -0.32, lift: 0.94 },
+      { x: +L * 0.30, z: +0.95 * scale,   tilt:  0.50, lift: 0.82 },
+      { x: +L * 0.30, z: -0.95 * scale,   tilt: -0.50, lift: 0.82 },
     ];
     for (const ep of eyePositions) {
-      const stalk = new THREE.Mesh(new THREE.CylinderGeometry(0.07 * scale, 0.10 * scale, 0.7 * scale, 10), stalkMat);
-      stalk.position.set(ep.x, +L * 0.42, ep.z);
-      stalk.rotation.z = ep.a * -0.5;
-      stalk.rotation.x = ep.a;
+      // Tall, slightly curved stalk
+      const stalkH = 1.05 * scale * ep.lift;
+      const stalkGeo = new THREE.CylinderGeometry(0.10 * scale, 0.14 * scale, stalkH, 12);
+      // bend the stalk slightly outward by skewing its top
+      {
+        const p = stalkGeo.attributes.position;
+        for (let i = 0; i < p.count; i++) {
+          const y = p.getY(i);
+          const tBend = (y + stalkH * 0.5) / stalkH;
+          p.setZ(i, p.getZ(i) + Math.sin(ep.tilt) * tBend * 0.30 * scale);
+          p.setX(i, p.getX(i) + Math.cos(ep.tilt) * 0 /* keep X */);
+        }
+        stalkGeo.computeVertexNormals();
+      }
+      const stalk = new THREE.Mesh(stalkGeo, stalkMat);
+      stalk.position.set(ep.x, +L * 0.40 + stalkH * 0.5, ep.z);
       group.add(stalk);
-      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.16 * scale, 14, 10), eyeMat);
-      eye.position.set(ep.x + Math.sin(ep.a) * 0.05, +L * 0.42 + 0.42 * scale, ep.z + 0.08 * Math.sign(ep.z || 0.01));
+      // Big black mushroom-head eye on top
+      const eyeR = 0.32 * scale;
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(eyeR, 18, 14), eyeMat);
+      const tipY = +L * 0.40 + stalkH;
+      const tipZ = ep.z + Math.sin(ep.tilt) * 0.30 * scale;
+      eye.position.set(ep.x, tipY + eyeR * 0.4, tipZ);
+      eye.scale.set(1.05, 0.95, 1.05);
       group.add(eye);
+      // Tiny white highlight dot (catchlight)
+      const hl = new THREE.Mesh(new THREE.SphereGeometry(eyeR * 0.18, 8, 6), eyeHighlightMat);
+      hl.position.set(ep.x + eyeR * 0.5, tipY + eyeR * 0.7, tipZ - eyeR * 0.45);
+      group.add(hl);
     }
 
-    // ── Proboscis (front grasping arm — curved tube ending in spiky claw) ──
+    // ── Proboscis (front grasping arm — long curved tube with spiky claw) ──
     const probMat = new THREE.MeshPhysicalMaterial({
-      color: 0x4c2078, roughness: 0.30, metalness: 0.20,
-      clearcoat: 0.85, clearcoatRoughness: 0.12,
+      color: 0xb27440, roughness: 0.45, metalness: 0.08,
+      clearcoat: 0.45, clearcoatRoughness: 0.28,
     });
     const probPts = [
       new THREE.Vector3(+L * 0.45, +L * 0.20, 0),
-      new THREE.Vector3(+L * 0.62, +L * 0.10, 0),
-      new THREE.Vector3(+L * 0.80, -L * 0.04, 0),
-      new THREE.Vector3(+L * 0.92, -L * 0.18, 0),
+      new THREE.Vector3(+L * 0.65, +L * 0.06, 0),
+      new THREE.Vector3(+L * 0.85, -L * 0.10, 0),
+      new THREE.Vector3(+L * 1.00, -L * 0.22, 0),
+      new THREE.Vector3(+L * 1.10, -L * 0.30, 0),
     ];
-    const probGeo = makeTaperedTube(probPts, { rBase: 0.20 * scale, rTip: 0.10 * scale, segs: 24, radial: 10 });
+    const probGeo = makeTaperedTube(probPts, { rBase: 0.22 * scale, rTip: 0.11 * scale, segs: 32, radial: 12 });
     const proboscis = new THREE.Mesh(probGeo, probMat);
     group.add(proboscis);
-    // Articulated rings on proboscis (segments)
-    const ringMat = new THREE.MeshStandardMaterial({ color: 0x2a0e44, roughness: 0.5, metalness: 0.1 });
-    for (let i = 0; i < 8; i++) {
-      const t = (i + 1) / 9;
+    // Articulated rings on proboscis — many tightly-spaced rings to suggest segments
+    const ringMat = new THREE.MeshStandardMaterial({ color: 0x4a2c10, roughness: 0.55, metalness: 0.08 });
+    const probCurve = new THREE.CatmullRomCurve3(probPts);
+    for (let i = 0; i < 14; i++) {
+      const t = (i + 1) / 15;
       const pos = new THREE.Vector3();
-      new THREE.CatmullRomCurve3(probPts).getPointAt(t, pos);
-      const r = new THREE.Mesh(new THREE.TorusGeometry(0.16 * scale * (1 - t * 0.45), 0.03 * scale, 6, 14), ringMat);
+      probCurve.getPointAt(t, pos);
+      const r = new THREE.Mesh(new THREE.TorusGeometry(0.18 * scale * (1 - t * 0.40), 0.035 * scale, 8, 18), ringMat);
       r.position.copy(pos);
-      // Orient ring perpendicular to curve tangent
       const tan = new THREE.Vector3();
-      new THREE.CatmullRomCurve3(probPts).getTangentAt(t, tan);
+      probCurve.getTangentAt(t, tan);
       const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), tan.normalize());
       r.quaternion.copy(q);
       group.add(r);
     }
-    // Claw at tip — 5 small spikes around end
+    // Claw at tip — 6 curved spikes radiating outward like a sea anemone grip
     const clawTipPos = new THREE.Vector3();
-    new THREE.CatmullRomCurve3(probPts).getPointAt(1, clawTipPos);
-    for (let i = 0; i < 5; i++) {
-      const a = (i / 5) * Math.PI * 2;
-      const spike = new THREE.Mesh(new THREE.ConeGeometry(0.05 * scale, 0.32 * scale, 8), ringMat);
+    probCurve.getPointAt(1, clawTipPos);
+    const clawTan = new THREE.Vector3();
+    probCurve.getTangentAt(1, clawTan).normalize();
+    const clawMat = new THREE.MeshStandardMaterial({ color: 0x2a1604, roughness: 0.4, metalness: 0.18 });
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      const spike = new THREE.Mesh(new THREE.ConeGeometry(0.05 * scale, 0.42 * scale, 8), clawMat);
+      const offX = Math.cos(a) * 0.16 * scale;
+      const offY = Math.sin(a) * 0.16 * scale;
+      // Tilt outward
       spike.position.set(
-        clawTipPos.x + Math.cos(a) * 0.10 * scale,
-        clawTipPos.y + Math.sin(a) * 0.10 * scale,
-        clawTipPos.z + 0.04 * scale,
+        clawTipPos.x + offX + clawTan.x * 0.16 * scale,
+        clawTipPos.y + offY + clawTan.y * 0.16 * scale,
+        clawTipPos.z,
       );
-      spike.rotation.z = -Math.PI / 2 - 0.3;
+      spike.rotation.z = a + Math.PI;
+      spike.rotation.x = -0.3;
       group.add(spike);
     }
 
-    // ── 14 lateral lobes (swimming flaps) along body sides ─────────────────
+    // ── 15 pairs of lateral lobes — feather/leaf-shaped, overlapping ───────
     const lobeMat = injectBend(new THREE.MeshPhysicalMaterial({
-      color: 0x6a40a0, roughness: 0.35, metalness: 0.15,
-      clearcoat: 0.78, clearcoatRoughness: 0.16,
-      transparent: true, opacity: 0.92,
+      color: 0xe8a890, roughness: 0.32, metalness: 0.08,
+      clearcoat: 0.75, clearcoatRoughness: 0.18,
+      transparent: true, opacity: 0.86,
       side: THREE.DoubleSide,
     }), uniforms);
 
-    const lobeShape = new THREE.Shape();
-    lobeShape.moveTo(0, 0);
-    lobeShape.quadraticCurveTo(0.1 * scale,  0.6 * scale,  0.5 * scale, 0.7 * scale);
-    lobeShape.quadraticCurveTo(0.95 * scale, 0.45 * scale, 1.05 * scale, 0);
-    lobeShape.quadraticCurveTo(0.95 * scale,-0.05 * scale, 0.40 * scale, 0);
-    lobeShape.lineTo(0, 0);
-    const lobeGeo = new THREE.ExtrudeGeometry(lobeShape, {
-      depth: 0.06 * scale, bevelEnabled: true, bevelSegments: 1,
-      bevelSize: 0.02 * scale, bevelThickness: 0.02 * scale, steps: 1, curveSegments: 10,
-    });
-    lobeGeo.translate(0, 0, -0.03 * scale);
+    // Leaf-shaped lobe with veined center and pointed tip
+    function makeLobeGeo(scaleF) {
+      const sh = new THREE.Shape();
+      sh.moveTo(0, 0);
+      sh.bezierCurveTo(
+        0.10 * scaleF,  0.85 * scaleF,
+        0.55 * scaleF,  1.00 * scaleF,
+        0.95 * scaleF,  0.92 * scaleF,
+      );
+      sh.bezierCurveTo(
+        1.25 * scaleF,  0.65 * scaleF,
+        1.40 * scaleF,  0.20 * scaleF,
+        1.30 * scaleF,  0,
+      );
+      sh.bezierCurveTo(
+        1.20 * scaleF, -0.12 * scaleF,
+        0.55 * scaleF, -0.08 * scaleF,
+        0,             0,
+      );
+      const geo = new THREE.ExtrudeGeometry(sh, {
+        depth: 0.05 * scaleF, bevelEnabled: true, bevelSegments: 2,
+        bevelSize: 0.025 * scaleF, bevelThickness: 0.025 * scaleF, steps: 1, curveSegments: 16,
+      });
+      geo.translate(0, 0, -0.025 * scaleF);
+      return geo;
+    }
 
     const lobes = [];
-    const LOBE_COUNT = 14;
+    const LOBE_COUNT = 15;
     for (let i = 0; i < LOBE_COUNT; i++) {
       const t = i / (LOBE_COUNT - 1);
-      const x = THREE.MathUtils.lerp(+L * 0.30, -L * 0.40, t);
+      const x = THREE.MathUtils.lerp(+L * 0.32, -L * 0.42, t);
+      // Lobe size tapers slightly at head and tail ends
+      const sz = (0.8 + 0.55 * Math.sin(t * Math.PI)) * scale;
       for (const side of [-1, 1]) {
-        const lobe = new THREE.Mesh(lobeGeo.clone(), lobeMat);
-        lobe.position.set(x, -L * 0.04, side * 0.78 * scale);
-        lobe.rotation.set(0, side > 0 ? Math.PI * 0.0 : Math.PI, side > 0 ? 0.10 : -0.10);
-        lobe.scale.setScalar(0.7 + 0.3 * Math.sin(t * Math.PI));
-        lobe.userData.phase = t * Math.PI * 2 + (side > 0 ? 0 : Math.PI * 0.5);
-        lobe.userData.baseRZ = lobe.rotation.z;
+        const lobe = new THREE.Mesh(makeLobeGeo(sz), lobeMat);
+        // Slight overlap by lifting alternating rows
+        const yLift = -L * 0.04 + (i % 2 === 0 ? 0 : 0.05 * scale);
+        lobe.position.set(x, yLift, side * 0.84 * scale);
+        // Side flips and a slight downward droop near the head end
+        lobe.rotation.set(0, side > 0 ? 0 : Math.PI, side > 0 ? 0.08 : -0.08);
+        lobe.userData.phase   = t * Math.PI * 2.2 + (side > 0 ? 0 : Math.PI * 0.5);
+        lobe.userData.baseRZ  = lobe.rotation.z;
+        lobe.userData.tNorm   = t;
         lobes.push(lobe);
         group.add(lobe);
       }
     }
 
-    // ── Caudal fin (small triangular tail) ─────────────────────────────────
+    // ── Caudal fin (small triangular tail fan) ─────────────────────────────
     const finMat = injectBend(new THREE.MeshPhysicalMaterial({
-      color: 0x4a2078, roughness: 0.35, metalness: 0.15,
-      clearcoat: 0.65, clearcoatRoughness: 0.20,
+      color: 0xd09070, roughness: 0.38, metalness: 0.08,
+      clearcoat: 0.55, clearcoatRoughness: 0.24,
       side: THREE.DoubleSide,
     }), uniforms);
     const finShape = new THREE.Shape();
@@ -822,8 +936,8 @@ export class Opabinia extends Creature {
     const tailFin = new THREE.Mesh(finGeo, finMat);
     group.add(tailFin);
 
-    // Soft glow
-    const glow = new THREE.PointLight(0xb060e8, 0.7, 6 * scale, 2);
+    // Soft glow (warm amber, matches body tones)
+    const glow = new THREE.PointLight(0xf08040, 0.8, 8 * scale, 2);
     glow.position.set(+L * 0.30, +L * 0.18, 0);
     group.add(glow);
 
@@ -836,11 +950,11 @@ export class Opabinia extends Creature {
         THREE.MathUtils.randFloatSpread(GIANT_TANK.maxZ * 0.7),
       ),
       cfg: {
-        speed: 3.4, maxAccel: 2.8, turnRate: 2.8,
-        depthMin: GIANT_TANK.floorY + 6,
-        depthMax: GIANT_TANK.maxY - 6,
-        wanderMin: 3, wanderMax: 7,
-        wallMargin: 16,
+        speed: 4.2, maxAccel: 2.6, turnRate: 2.4,
+        depthMin: GIANT_TANK.floorY + 5,
+        depthMax: GIANT_TANK.maxY - 4,
+        wanderMin: 6, wanderMax: 12,
+        wallMargin: 10,
         bounds: GIANT_TANK,
         facesVelocity: true,
       },
@@ -855,19 +969,19 @@ export class Opabinia extends Creature {
     const u = this._uniforms;
     u.uTime.value = time;
     u.uTurn.value = this.turnSignal;
-    u.uFreq.value = 1.0 + 0.9 * this.speedNorm;
-    u.uAmp.value  = 0.22 + 0.18 * this.speedNorm;
+    u.uFreq.value = 0.9 + 0.8 * this.speedNorm;
+    u.uAmp.value  = 0.24 + 0.18 * this.speedNorm;
 
-    // Lateral lobes ripple in a wave from head to tail
+    // Lateral lobes ripple in a smooth wave from head to tail
     for (const lobe of this._lobes) {
-      const w = Math.sin(time * 4.5 - lobe.userData.phase);
-      lobe.rotation.z = lobe.userData.baseRZ + w * 0.34;
+      const w = Math.sin(time * 3.6 - lobe.userData.phase);
+      lobe.rotation.z = lobe.userData.baseRZ + w * 0.38;
     }
 
     // Body banking
-    this.mesh.rotation.x = THREE.MathUtils.lerp(this.mesh.rotation.x, -this.turnSignal * 0.20, Math.min(1, dt * 2.2));
+    this.mesh.rotation.x = THREE.MathUtils.lerp(this.mesh.rotation.x, -this.turnSignal * 0.22, Math.min(1, dt * 2.2));
 
-    this._glow.intensity = 0.6 + Math.sin(time * 1.6) * 0.18;
+    this._glow.intensity = 0.7 + Math.sin(time * 1.4) * 0.20;
   }
 }
 
@@ -937,23 +1051,51 @@ export class Anomalocaris extends Creature {
     head.position.set(+L * 0.42, +L * 0.05, 0);
     group.add(head);
 
-    // ── Compound eyes on stalks ────────────────────────────────────────────
-    const stalkMat = new THREE.MeshStandardMaterial({ color: 0x3a1c08, roughness: 0.45, metalness: 0.18 });
+    // ── Compound eyes on prominent stalks (tall pillar-like, signature
+    //    feature — large upright capsules on stout cylindrical bases) ──────
+    const stalkMat = new THREE.MeshStandardMaterial({ color: 0x4a2410, roughness: 0.50, metalness: 0.14 });
     const eyeMat = new THREE.MeshPhysicalMaterial({
-      color: 0x100400, roughness: 0.10, metalness: 0.05,
-      clearcoat: 0.95, clearcoatRoughness: 0.08,
-      emissive: new THREE.Color(0xff8030), emissiveIntensity: 1.6,
+      color: 0x0a0a14, roughness: 0.06, metalness: 0.08,
+      clearcoat: 1.0, clearcoatRoughness: 0.05,
+      emissive: new THREE.Color(0x0a3050), emissiveIntensity: 0.55,
+    });
+    const eyeBandMat = new THREE.MeshPhysicalMaterial({
+      color: 0x102030, roughness: 0.30, metalness: 0.25,
+      clearcoat: 0.85, clearcoatRoughness: 0.12,
+      emissive: new THREE.Color(0x205088), emissiveIntensity: 0.4,
     });
     for (const side of [-1, 1]) {
-      const stalk = new THREE.Mesh(new THREE.CylinderGeometry(0.16 * scale, 0.22 * scale, 0.8 * scale, 10), stalkMat);
-      stalk.position.set(+L * 0.46, +L * 0.12, 0.55 * scale * side);
-      stalk.rotation.z = Math.PI * 0.5 - 0.2;
-      stalk.rotation.y = side > 0 ? -0.3 : 0.3;
+      // Stalk: angled outward, tall
+      const stalkLen = 1.10 * scale;
+      const stalk = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.20 * scale, 0.30 * scale, stalkLen, 14),
+        stalkMat,
+      );
+      stalk.position.set(+L * 0.46, +L * 0.18, 0.55 * scale * side);
+      stalk.rotation.z = -0.18 * side;
+      stalk.rotation.x = -0.10;
       group.add(stalk);
-      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.32 * scale, 18, 14), eyeMat);
-      eye.position.set(+L * 0.52, +L * 0.15, 0.82 * scale * side);
-      eye.scale.set(1.0, 0.85, 1.0);
-      group.add(eye);
+      // Big capsule-shaped compound eye on top, with subtle horizontal band
+      const eyeGroup = new THREE.Group();
+      const eye = new THREE.Mesh(
+        new THREE.CapsuleGeometry(0.40 * scale, 0.55 * scale, 12, 18),
+        eyeMat,
+      );
+      eyeGroup.add(eye);
+      // Horizontal iridescent band around the middle (compound-eye highlight)
+      const band = new THREE.Mesh(
+        new THREE.TorusGeometry(0.405 * scale, 0.045 * scale, 8, 24),
+        eyeBandMat,
+      );
+      band.rotation.x = Math.PI / 2;
+      eyeGroup.add(band);
+      // Catchlight dot for life
+      const hl = new THREE.Mesh(new THREE.SphereGeometry(0.08 * scale, 8, 6), new THREE.MeshBasicMaterial({ color: 0xfff8e0 }));
+      hl.position.set(0.20 * scale, 0.20 * scale, 0.32 * scale);
+      eyeGroup.add(hl);
+      eyeGroup.position.set(+L * 0.46, +L * 0.18 + stalkLen * 0.55, 0.55 * scale * side + 0.08 * scale * side);
+      eyeGroup.rotation.z = -0.15 * side;
+      group.add(eyeGroup);
     }
 
     // ── Disc mouth (circular array of plates) underneath head ──────────────
@@ -1003,40 +1145,70 @@ export class Anomalocaris extends Creature {
       }
     }
 
-    // ── 14 pairs of lateral swim flaps (the iconic locomotion structures) ─
+    // ── 14 pairs of lateral swim flaps (leaf/petal-shaped, overlapping like
+    //    fish scales — the iconic locomotion structures of Anomalocaris) ──
     const flapMat = injectBend(new THREE.MeshPhysicalMaterial({
-      color: 0xc88058, roughness: 0.42, metalness: 0.15,
-      clearcoat: 0.55, clearcoatRoughness: 0.22,
-      transparent: true, opacity: 0.95,
+      color: 0xd89868, roughness: 0.38, metalness: 0.10,
+      clearcoat: 0.70, clearcoatRoughness: 0.18,
+      transparent: true, opacity: 0.90,
       side: THREE.DoubleSide,
     }), uniforms);
-    const flapShape = new THREE.Shape();
-    flapShape.moveTo(0, 0);
-    flapShape.quadraticCurveTo( 0.05 * scale,  0.85 * scale,  0.50 * scale,  1.00 * scale);
-    flapShape.quadraticCurveTo( 1.05 * scale,  0.55 * scale,  1.20 * scale,  0);
-    flapShape.quadraticCurveTo( 1.05 * scale, -0.10 * scale,  0.40 * scale, -0.04 * scale);
-    flapShape.lineTo(0, 0);
-    const flapGeo = new THREE.ExtrudeGeometry(flapShape, {
-      depth: 0.07 * scale, bevelEnabled: true, bevelSegments: 1,
-      bevelSize: 0.025 * scale, bevelThickness: 0.025 * scale, steps: 1, curveSegments: 12,
-    });
-    flapGeo.translate(0, 0, -0.035 * scale);
+    // Leaf/petal shape with pointed tip — like an elongated tear drop
+    function makeFlapShape(scaleF) {
+      const sh = new THREE.Shape();
+      sh.moveTo(0, 0);
+      sh.bezierCurveTo(
+        0.08 * scaleF,  0.95 * scaleF,
+        0.55 * scaleF,  1.15 * scaleF,
+        1.00 * scaleF,  1.00 * scaleF,
+      );
+      sh.bezierCurveTo(
+        1.40 * scaleF,  0.78 * scaleF,
+        1.55 * scaleF,  0.32 * scaleF,
+        1.45 * scaleF,  0,
+      );
+      sh.bezierCurveTo(
+        1.30 * scaleF, -0.14 * scaleF,
+        0.55 * scaleF, -0.08 * scaleF,
+        0,             0,
+      );
+      return sh;
+    }
 
     const flaps = [];
     const FLAP_COUNT = 14;
     for (let i = 0; i < FLAP_COUNT; i++) {
       const t = i / (FLAP_COUNT - 1);
-      const x = THREE.MathUtils.lerp(+L * 0.28, -L * 0.42, t);
-      const sizeF = 0.6 + 0.45 * Math.sin(t * Math.PI);
+      const x = THREE.MathUtils.lerp(+L * 0.26, -L * 0.40, t);
+      // Per-flap size — fatter in the middle of the body, narrower at ends
+      const sizeF = (0.78 + 0.55 * Math.sin(t * Math.PI)) * scale;
+      // Build flap shape at this exact size so the dark edge ring aligns
+      const sh = makeFlapShape(sizeF);
+      const flapGeo = new THREE.ExtrudeGeometry(sh, {
+        depth: 0.06 * scale, bevelEnabled: true, bevelSegments: 2,
+        bevelSize: 0.025 * scale, bevelThickness: 0.025 * scale, steps: 1, curveSegments: 16,
+      });
+      flapGeo.translate(0, 0, -0.03 * scale);
+
+      // Thin dark "rib" outline traced on top via a simple Line — adds
+      // anatomical detail at the flap edge.
+      const ribPts = sh.getPoints(48).map(v => new THREE.Vector3(v.x, v.y, 0.04 * scale));
+      const ribGeo = new THREE.BufferGeometry().setFromPoints(ribPts);
+
       for (const side of [-1, 1]) {
-        const flap = new THREE.Mesh(flapGeo.clone(), flapMat);
-        flap.scale.setScalar(sizeF);
-        flap.position.set(x, -L * 0.10, side * 0.62 * scale);
-        flap.rotation.set(0, side > 0 ? 0 : Math.PI, side > 0 ? 0.08 : -0.08);
-        flap.userData.phase = t * Math.PI * 2.5 + (side > 0 ? 0 : Math.PI * 0.4);
-        flap.userData.baseRZ = flap.rotation.z;
-        flaps.push(flap);
-        group.add(flap);
+        const subgroup = new THREE.Group();
+        const flap = new THREE.Mesh(flapGeo, flapMat);
+        subgroup.add(flap);
+        const rib = new THREE.Line(ribGeo, new THREE.LineBasicMaterial({ color: 0x2a1408, transparent: true, opacity: 0.5 }));
+        subgroup.add(rib);
+        // Position — stagger overlap with neighbours by alternating Y offset
+        const yLift = -L * 0.08 + (i % 2 === 0 ? 0 : 0.08 * scale);
+        subgroup.position.set(x, yLift, side * 0.60 * scale);
+        subgroup.rotation.set(0, side > 0 ? 0 : Math.PI, side > 0 ? 0.07 : -0.07);
+        subgroup.userData.phase = t * Math.PI * 2.8 + (side > 0 ? 0 : Math.PI * 0.4);
+        subgroup.userData.baseRZ = subgroup.rotation.z;
+        flaps.push(subgroup);
+        group.add(subgroup);
       }
     }
 
@@ -1074,11 +1246,11 @@ export class Anomalocaris extends Creature {
         THREE.MathUtils.randFloatSpread(GIANT_TANK.maxZ * 0.7),
       ),
       cfg: {
-        speed: 2.9, maxAccel: 1.6, turnRate: 1.6,
-        depthMin: GIANT_TANK.floorY + 8,
-        depthMax: GIANT_TANK.maxY - 7,
-        wanderMin: 5, wanderMax: 11,
-        wallMargin: 18,
+        speed: 3.6, maxAccel: 1.8, turnRate: 1.4,
+        depthMin: GIANT_TANK.floorY + 6,
+        depthMax: GIANT_TANK.maxY - 5,
+        wanderMin: 8, wanderMax: 16,
+        wallMargin: 12,
         bounds: GIANT_TANK,
         facesVelocity: true,
       },
@@ -1093,7 +1265,7 @@ export class Anomalocaris extends Creature {
     const u = this._uniforms;
     u.uTime.value = time;
     u.uTurn.value = this.turnSignal;
-    u.uFreq.value = 0.65 + 0.7 * this.speedNorm;
+    u.uFreq.value = 0.55 + 0.55 * this.speedNorm;
     u.uAmp.value  = 0.18 + 0.18 * this.speedNorm;
 
     // Lateral flaps create the iconic travelling wave of locomotion
@@ -1213,30 +1385,56 @@ export class Cameroceras extends Creature {
     funnel.rotation.z = Math.PI * 0.5 + 0.4;
     group.add(funnel);
 
-    // ── 10 tentacles fanning out from the hood opening ─────────────────────
+    // ── 10 thick octopus-like tentacles fanning out from the hood opening ─
     const tentMat = new THREE.MeshPhysicalMaterial({
-      color: 0xa66848, roughness: 0.55, metalness: 0.04,
-      clearcoat: 0.30, clearcoatRoughness: 0.40,
+      color: 0xb87648, roughness: 0.50, metalness: 0.04,
+      clearcoat: 0.42, clearcoatRoughness: 0.32,
+      emissive: new THREE.Color(0x301808), emissiveIntensity: 0.12,
     });
+    const suckerMat = new THREE.MeshStandardMaterial({
+      color: 0x6a3a20, roughness: 0.60, metalness: 0.05,
+    });
+
     const tentacles = [];
     const TENT_COUNT = 10;
     for (let i = 0; i < TENT_COUNT; i++) {
       const a = (i / TENT_COUNT) * Math.PI * 2;
-      const baseR = 1.4 * scale;
-      const tipR = 3.5 * scale;
+      const baseR = 1.20 * scale;
+      const tipR  = 3.80 * scale;
+      // Each tentacle curls outward and slightly downward, with a gentle S
       const pts = [
-        new THREE.Vector3(0.50 * scale,                          Math.cos(a) * baseR,         Math.sin(a) * baseR),
-        new THREE.Vector3(0.50 * scale + 0.50 * scale,           Math.cos(a) * baseR * 1.35,  Math.sin(a) * baseR * 1.35),
-        new THREE.Vector3(0.50 * scale + 1.10 * scale,           Math.cos(a) * tipR * 0.75,   Math.sin(a) * tipR * 0.75),
-        new THREE.Vector3(0.50 * scale + 1.60 * scale,           Math.cos(a) * tipR * 0.95,   Math.sin(a) * tipR * 0.95),
-        new THREE.Vector3(0.50 * scale + 1.90 * scale,           Math.cos(a) * tipR,          Math.sin(a) * tipR),
+        new THREE.Vector3(0.55 * scale,                    Math.cos(a) * baseR,            Math.sin(a) * baseR),
+        new THREE.Vector3(0.55 * scale + 0.70 * scale,     Math.cos(a) * baseR * 1.30,     Math.sin(a) * baseR * 1.30),
+        new THREE.Vector3(0.55 * scale + 1.55 * scale,     Math.cos(a) * tipR * 0.62,      Math.sin(a) * tipR * 0.62),
+        new THREE.Vector3(0.55 * scale + 2.30 * scale,     Math.cos(a) * tipR * 0.86,      Math.sin(a) * tipR * 0.86),
+        new THREE.Vector3(0.55 * scale + 2.85 * scale,     Math.cos(a) * tipR * 0.98,      Math.sin(a) * tipR * 0.98),
+        new THREE.Vector3(0.55 * scale + 3.20 * scale,     Math.cos(a) * tipR,             Math.sin(a) * tipR),
       ];
-      const tentGeo = makeTaperedTube(pts, { rBase: 0.15 * scale, rTip: 0.04 * scale, segs: 22, radial: 10 });
+      // Much thicker base than before — octopus-arm proportions
+      const tentGeo = makeTaperedTube(pts, { rBase: 0.34 * scale, rTip: 0.06 * scale, segs: 32, radial: 14 });
       const tent = new THREE.Mesh(tentGeo, tentMat);
       tent.userData.basePts = pts.map(p => p.clone());
       tent.userData.phase = a;
       tentacles.push(tent);
       group.add(tent);
+
+      // Suction-cup style bumps along the underside of each tentacle
+      const curve = new THREE.CatmullRomCurve3(pts);
+      for (let j = 1; j < 12; j++) {
+        const t = j / 12;
+        const pos = new THREE.Vector3();
+        curve.getPointAt(t, pos);
+        const tan = new THREE.Vector3();
+        curve.getTangentAt(t, tan).normalize();
+        // Inward (toward central axis) — for visual interest the cups sit on
+        // the curve interior
+        const inward = new THREE.Vector3(-Math.cos(a), 0, -Math.sin(a)).normalize();
+        const r = THREE.MathUtils.lerp(0.30, 0.06, t * t) * scale;
+        const cup = new THREE.Mesh(new THREE.SphereGeometry(r * 0.6, 8, 6), suckerMat);
+        cup.position.copy(pos).addScaledVector(inward, r * 0.85);
+        cup.scale.set(1.0, 0.55, 1.0);
+        group.add(cup);
+      }
     }
 
     // Bioluminescent glow at opening
@@ -1253,11 +1451,11 @@ export class Cameroceras extends Creature {
         THREE.MathUtils.randFloatSpread(GIANT_TANK.maxZ * 0.6),
       ),
       cfg: {
-        speed: 1.6, maxAccel: 0.5, turnRate: 0.55,
-        depthMin: GIANT_TANK.floorY + 6,
-        depthMax: GIANT_TANK.maxY - 12,
-        wanderMin: 10, wanderMax: 18,
-        wallMargin: 22,
+        speed: 2.4, maxAccel: 0.75, turnRate: 0.55,
+        depthMin: GIANT_TANK.floorY + 10,
+        depthMax: GIANT_TANK.maxY - 8,
+        wanderMin: 12, wanderMax: 22,
+        wallMargin: 18,
         bounds: GIANT_TANK,
         facesVelocity: true,
       },
@@ -1270,15 +1468,15 @@ export class Cameroceras extends Creature {
   onUpdate(dt, time) {
     // Tentacles wave with soft sine offsets (no body bend for the hard shell)
     for (const t of this._tentacles) {
-      const w = Math.sin(time * 0.9 + t.userData.phase) * 0.18;
-      const w2 = Math.cos(time * 0.6 + t.userData.phase * 1.3) * 0.12;
+      const w = Math.sin(time * 0.9 + t.userData.phase) * 0.22;
+      const w2 = Math.cos(time * 0.6 + t.userData.phase * 1.3) * 0.16;
       t.rotation.y = w;
       t.rotation.z = w2;
     }
     this._glow.intensity = 1.4 + Math.sin(time * 0.7) * 0.30;
 
     // Slight roll for organic feel
-    this.mesh.rotation.x = THREE.MathUtils.lerp(this.mesh.rotation.x, -this.turnSignal * 0.10, Math.min(1, dt * 1.4));
+    this.mesh.rotation.x = THREE.MathUtils.lerp(this.mesh.rotation.x, -this.turnSignal * 0.12, Math.min(1, dt * 1.2));
   }
 }
 
@@ -1678,16 +1876,13 @@ export function launch() {
     creatures: null,
   };
 
-  // ── Creatures (more individuals + bigger scale, given the larger tank) ───
+  // ── Creatures: exactly one of each species so the giant volume reads
+  //    cleanly. Futabasaurus is sized as the apex of the four.
   const creatures = [];
-  const counts = isMobile
-    ? { futabasaurus: 2, opabinia: 4, anomalocaris: 3, cameroceras: 2 }
-    : { futabasaurus: 3, opabinia: 6, anomalocaris: 5, cameroceras: 3 };
-
-  for (let i = 0; i < counts.futabasaurus; i++) creatures.push(new Futabasaurus({ scale: 2.6, castShadow: !isMobile }));
-  for (let i = 0; i < counts.opabinia;     i++) creatures.push(new Opabinia    ({ scale: 4.2, castShadow: !isMobile }));
-  for (let i = 0; i < counts.anomalocaris; i++) creatures.push(new Anomalocaris({ scale: 3.1, castShadow: !isMobile }));
-  for (let i = 0; i < counts.cameroceras;  i++) creatures.push(new Cameroceras ({ scale: 3.6, castShadow: !isMobile }));
+  creatures.push(new Futabasaurus({ scale: 5.0, castShadow: !isMobile }));
+  creatures.push(new Anomalocaris({ scale: 2.8, castShadow: !isMobile }));
+  creatures.push(new Cameroceras ({ scale: 2.5, castShadow: !isMobile }));
+  creatures.push(new Opabinia    ({ scale: 3.4, castShadow: !isMobile }));
 
   for (const c of creatures) scene.add(c.mesh);
   state.creatures = creatures;
