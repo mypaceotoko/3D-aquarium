@@ -5,6 +5,13 @@ import { createObservationUI } from '../interaction/observationUI.js';
 import { initAudio } from '../audio.js';
 import { Creature } from '../creatures/Creature.js';
 
+const GIANT_TANK = {
+  minX: -52, maxX: 52,
+  minY: -14, maxY: 16,
+  minZ: -36, maxZ: 36,
+  floorY: -14,
+};
+
 class Futabasaurus extends Creature {
   constructor() {
     const mesh = new THREE.Group();
@@ -22,7 +29,7 @@ class Futabasaurus extends Creature {
     const tail = new THREE.Mesh(new THREE.ConeGeometry(0.9, 2.8, 12), bodyMat);
     tail.position.set(-6.2, 0.15, 0); tail.rotation.z = -Math.PI / 2;
     mesh.add(body, neck, head, tail);
-    super({ species: 'futabasaurus', mesh, position: new THREE.Vector3(-24, 2, -8), cfg: { speed: 1.0, maxAccel: 0.9, turnRate: 0.9, depthMin: -7.5, depthMax: 7.5, wallMargin: 8 } });
+    super({ species: 'futabasaurus', mesh, position: new THREE.Vector3(-24, 2, -8), cfg: { speed: 1.0, maxAccel: 0.9, turnRate: 0.9, depthMin: -7.5, depthMax: 7.5, wallMargin: 8, bounds: GIANT_TANK } });
   }
 }
 
@@ -36,7 +43,7 @@ class Opabinia extends Creature {
     for (let i = 0; i < 5; i++) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 10), eyeMat); e.position.set(-0.5 + i * 0.38, 0.9, 0.55); mesh.add(e); }
     const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.2, 2.9, 10), mat); trunk.position.set(2.6, 0.25, 0); trunk.rotation.z = -Math.PI / 2.8; mesh.add(trunk);
     const claw = new THREE.Mesh(new THREE.SphereGeometry(0.26, 10, 10), eyeMat); claw.position.set(3.5, -0.65, 0); mesh.add(claw);
-    super({ species: 'opabinia', mesh, position: new THREE.Vector3(10, 0.8, -12), cfg: { speed: 1.35, maxAccel: 1.3, turnRate: 1.8, depthMin: -5.5, depthMax: 8.2, wallMargin: 7 } });
+    super({ species: 'opabinia', mesh, position: new THREE.Vector3(10, 0.8, -12), cfg: { speed: 1.35, maxAccel: 1.3, turnRate: 1.8, depthMin: -5.5, depthMax: 8.2, wallMargin: 7, bounds: GIANT_TANK } });
   }
 }
 
@@ -51,7 +58,7 @@ class Anomalocaris extends Creature {
     const armL = new THREE.Mesh(armGeo, bodyMat); armL.position.set(3.3, -0.5, 1.0); armL.rotation.set(0.2, 0.2, -0.45);
     const armR = armL.clone(); armR.position.z = -1.0; armR.rotation.y *= -1;
     mesh.add(armL, armR);
-    super({ species: 'anomalocaris', mesh, position: new THREE.Vector3(18, -2, 10), cfg: { speed: 1.45, maxAccel: 1.4, turnRate: 1.7, depthMin: -8.2, depthMax: 5.8, wallMargin: 8 } });
+    super({ species: 'anomalocaris', mesh, position: new THREE.Vector3(18, -2, 10), cfg: { speed: 1.45, maxAccel: 1.4, turnRate: 1.7, depthMin: -8.2, depthMax: 5.8, wallMargin: 8, bounds: GIANT_TANK } });
   }
 }
 
@@ -64,7 +71,7 @@ class Cameroceras extends Creature {
     for (let i = 0; i < 8; i++) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.95 + i * 0.05, 0.06, 8, 18), ringMat); r.rotation.y = Math.PI / 2; r.position.x = -3.8 + i * 1.25; mesh.add(r); }
     const tentacleMat = new THREE.MeshStandardMaterial({ color: 0x7aa7bf, roughness: 0.5, metalness: 0.04 });
     for (let i = 0; i < 8; i++) { const t = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.17, 4.5, 8), tentacleMat); const a = (Math.PI * 2 * i) / 8; t.position.set(5.8, Math.cos(a) * 1.1, Math.sin(a) * 1.1); t.rotation.z = Math.PI / 2 + (Math.random() - 0.5) * 0.2; mesh.add(t); }
-    super({ species: 'cameroceras', mesh, position: new THREE.Vector3(-8, -1, 16), cfg: { speed: 0.9, maxAccel: 0.75, turnRate: 0.8, depthMin: -9.5, depthMax: 4.5, wallMargin: 10 } });
+    super({ species: 'cameroceras', mesh, position: new THREE.Vector3(-8, -1, 16), cfg: { speed: 0.9, maxAccel: 0.75, turnRate: 0.8, depthMin: -9.5, depthMax: 4.5, wallMargin: 10, bounds: GIANT_TANK } });
   }
 }
 
@@ -78,7 +85,7 @@ export function launch() {
   if (!isMobile) { renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; }
 
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(72, window.innerWidth / window.innerHeight, 0.1, 260); camera.position.set(0, 8, 56);
+  const camera = new THREE.PerspectiveCamera(72, window.innerWidth / window.innerHeight, 0.1, 320); camera.position.set(0, 10, 84);
   const state = { ambient: true, soundOn: false, food: { active: false, position: new THREE.Vector3() }, creatures: null };
   const sceneApi = buildScene(scene, { isMobile });
   scene.fog = new THREE.FogExp2(0x031728, 0.024);
