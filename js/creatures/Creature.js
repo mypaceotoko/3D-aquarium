@@ -18,12 +18,15 @@ const FWD = new THREE.Vector3(1, 0, 0);
 export class Creature {
   constructor({ species, cfg, mesh, position }) {
     this.species = species;
+    const bounds = cfg?.bounds ?? TANK;
+    this.bounds = bounds;
+
     this.cfg = {
       speed: 1.2,
       maxAccel: 1.2,
       turnRate: 1.4,
-      depthMin: TANK.floorY + 1.5,
-      depthMax: TANK.maxY - 1.0,
+      depthMin: bounds.floorY + 1.5,
+      depthMax: bounds.maxY - 1.0,
       wanderMin: 4,
       wanderMax: 9,
       wallMargin: 4,
@@ -34,9 +37,9 @@ export class Creature {
     this.mesh = mesh;
 
     this.pos = position ? position.clone() : new THREE.Vector3(
-      THREE.MathUtils.randFloatSpread(TANK.maxX * 1.4),
+      THREE.MathUtils.randFloatSpread(this.bounds.maxX * 1.4),
       THREE.MathUtils.randFloat(this.cfg.depthMin, this.cfg.depthMax),
-      THREE.MathUtils.randFloatSpread(TANK.maxZ * 1.4),
+      THREE.MathUtils.randFloatSpread(this.bounds.maxZ * 1.4),
     );
     this.vel = new THREE.Vector3(
       (Math.random() - 0.5) * this.cfg.speed,
@@ -57,10 +60,11 @@ export class Creature {
 
   pickTarget(state) {
     const { cfg } = this;
+    const b = this.bounds;
     this.target.set(
-      THREE.MathUtils.randFloat(TANK.minX + cfg.wallMargin, TANK.maxX - cfg.wallMargin),
+      THREE.MathUtils.randFloat(b.minX + cfg.wallMargin, b.maxX - cfg.wallMargin),
       THREE.MathUtils.randFloat(cfg.depthMin, cfg.depthMax),
-      THREE.MathUtils.randFloat(TANK.minZ + cfg.wallMargin, TANK.maxZ - cfg.wallMargin),
+      THREE.MathUtils.randFloat(b.minZ + cfg.wallMargin, b.maxZ - cfg.wallMargin),
     );
     this.onPickTarget?.(this.target, state);
     this.wanderT = THREE.MathUtils.randFloat(cfg.wanderMin, cfg.wanderMax);
@@ -70,10 +74,11 @@ export class Creature {
   avoidWalls(desired) {
     const { pos, cfg } = this;
     const mx = cfg.wallMargin;
-    if (pos.x >  TANK.maxX - mx) desired.x -= (pos.x - (TANK.maxX - mx)) * 0.9;
-    if (pos.x <  TANK.minX + mx) desired.x += ((TANK.minX + mx) - pos.x) * 0.9;
-    if (pos.z >  TANK.maxZ - mx) desired.z -= (pos.z - (TANK.maxZ - mx)) * 0.9;
-    if (pos.z <  TANK.minZ + mx) desired.z += ((TANK.minZ + mx) - pos.z) * 0.9;
+    const b = this.bounds;
+    if (pos.x >  b.maxX - mx) desired.x -= (pos.x - (b.maxX - mx)) * 0.9;
+    if (pos.x <  b.minX + mx) desired.x += ((b.minX + mx) - pos.x) * 0.9;
+    if (pos.z >  b.maxZ - mx) desired.z -= (pos.z - (b.maxZ - mx)) * 0.9;
+    if (pos.z <  b.minZ + mx) desired.z += ((b.minZ + mx) - pos.z) * 0.9;
     if (pos.y >  cfg.depthMax)   desired.y -= (pos.y - cfg.depthMax) * 1.2;
     if (pos.y <  cfg.depthMin)   desired.y += (cfg.depthMin - pos.y) * 1.2;
   }
