@@ -1515,69 +1515,140 @@ export class Cameroceras extends Creature {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Blue whale procedural texture: blue-gray dorsal → pale ventral with the
-// signature heavy mottling of irregular pale and dark blotches.
+// Blue whale procedural texture — high-res countershaded skin.
+//
+//   - Dorsal: slate / indigo with subtle bluer cast
+//   - Ventral: warm pale gray-cream (true blue whales have a distinctly paler
+//     belly with a soft mottled boundary, not a hard line)
+//   - Heavy irregular mottle blotches both dark (above) and pale (below) plus
+//     a "shoulder" band where the two zones meet
+//   - Subtle longitudinal striations + scattered scarring streaks
+//   - Faint barnacle / parasitic copepod patches near chin and flippers
 // ─────────────────────────────────────────────────────────────────────────────
 function makeBlueWhaleTexture() {
-  const W = 1024, H = 256;
+  const W = 2048, H = 512;
   const c = document.createElement('canvas');
   c.width = W; c.height = H;
   const g = c.getContext('2d');
 
-  // Vertical gradient: slate-blue top → pale belly
+  // ── Base countershading: dark indigo dorsal → pale belly ─────────────────
   const grad = g.createLinearGradient(0, 0, 0, H);
-  grad.addColorStop(0.00, '#1c2a3a');
-  grad.addColorStop(0.45, '#324658');
-  grad.addColorStop(0.72, '#6a7c8c');
-  grad.addColorStop(1.00, '#c0c8d2');
+  grad.addColorStop(0.00, '#0f1d2a');   // very dark dorsal
+  grad.addColorStop(0.18, '#1a2e42');
+  grad.addColorStop(0.42, '#3a536b');
+  grad.addColorStop(0.62, '#7a8a9c');   // shoulder transition
+  grad.addColorStop(0.82, '#b8c2cc');
+  grad.addColorStop(1.00, '#d8dee4');   // pale ventral
   g.fillStyle = grad;
   g.fillRect(0, 0, W, H);
 
-  // Subtle horizontal hue shift (slightly bluer toward head and tail)
+  // ── Longitudinal hue shift: slightly bluer mid-flank ─────────────────────
   const hgrad = g.createLinearGradient(0, 0, W, 0);
-  hgrad.addColorStop(0.0, 'rgba(20, 50, 80, 0.10)');
+  hgrad.addColorStop(0.0, 'rgba(18, 42, 72, 0.14)');
   hgrad.addColorStop(0.5, 'rgba(0, 0, 0, 0.00)');
-  hgrad.addColorStop(1.0, 'rgba(40, 80, 110, 0.10)');
+  hgrad.addColorStop(1.0, 'rgba(34, 60, 90, 0.10)');
   g.fillStyle = hgrad;
   g.fillRect(0, 0, W, H);
 
-  addNoise(g, W, H, 16);
+  addNoise(g, W, H, 14);
 
-  // Signature pale mottle blotches
-  for (let i = 0; i < 220; i++) {
-    const x = Math.random() * W;
-    const y = Math.random() * H * 0.88;
-    const r = 6 + Math.random() * 22;
-    const a = 0.18 + Math.random() * 0.30;
+  // Helper: irregular soft blob with random oval distortion
+  function blob(x, y, r, color, alpha) {
     const rg = g.createRadialGradient(x, y, 0, x, y, r);
-    rg.addColorStop(0,    `rgba(196, 210, 222, ${a})`);
-    rg.addColorStop(0.55, `rgba(196, 210, 222, ${a * 0.35})`);
-    rg.addColorStop(1,    `rgba(196, 210, 222, 0)`);
+    rg.addColorStop(0,    `rgba(${color}, ${alpha})`);
+    rg.addColorStop(0.55, `rgba(${color}, ${alpha * 0.45})`);
+    rg.addColorStop(1,    `rgba(${color}, 0)`);
     g.fillStyle = rg;
     g.save();
     g.translate(x, y);
     g.rotate(Math.random() * Math.PI);
-    g.scale(1, 0.45 + Math.random() * 0.5);
+    g.scale(0.6 + Math.random() * 0.7, 0.45 + Math.random() * 0.55);
     g.beginPath(); g.arc(0, 0, r, 0, Math.PI * 2); g.fill();
     g.restore();
   }
 
-  // Darker scattered spots near the dorsal half
+  // ── LARGE pale dorsal mottles (the signature look) ───────────────────────
+  for (let i = 0; i < 110; i++) {
+    const x = Math.random() * W;
+    const y = Math.random() * H * 0.55;          // dorsal half
+    const r = 28 + Math.random() * 80;            // large irregular patches
+    blob(x, y, r, '180, 198, 214', 0.22 + Math.random() * 0.20);
+  }
+  // Cluster of smaller pale spots layered on top
+  for (let i = 0; i < 340; i++) {
+    const x = Math.random() * W;
+    const y = Math.random() * H * 0.70;
+    const r = 5 + Math.random() * 18;
+    blob(x, y, r, '196, 212, 224', 0.18 + Math.random() * 0.28);
+  }
+
+  // ── DARK shoulder spots near the mid-flank transition ────────────────────
+  for (let i = 0; i < 90; i++) {
+    const x = Math.random() * W;
+    const y = H * (0.18 + Math.random() * 0.45);
+    const r = 6 + Math.random() * 16;
+    blob(x, y, r, '14, 24, 36', 0.22 + Math.random() * 0.32);
+  }
+
+  // ── Belly cream patches (warmer mottle on the ventral side) ──────────────
   for (let i = 0; i < 80; i++) {
     const x = Math.random() * W;
-    const y = Math.random() * H * 0.50;
-    const r = 3 + Math.random() * 10;
-    const a = 0.18 + Math.random() * 0.28;
-    const rg = g.createRadialGradient(x, y, 0, x, y, r);
-    rg.addColorStop(0, `rgba(12, 22, 34, ${a})`);
-    rg.addColorStop(1, `rgba(12, 22, 34, 0)`);
-    g.fillStyle = rg;
-    g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+    const y = H * (0.75 + Math.random() * 0.20);
+    const r = 14 + Math.random() * 40;
+    blob(x, y, r, '230, 226, 210', 0.18 + Math.random() * 0.22);
   }
+
+  // ── Soft longitudinal striations along body length ───────────────────────
+  g.globalAlpha = 0.08;
+  g.strokeStyle = '#0a1622';
+  for (let y = 0; y < H; y += 5) {
+    g.lineWidth = 0.6 + Math.random() * 0.7;
+    g.beginPath();
+    for (let x = 0; x <= W; x += 8) {
+      const yy = y + Math.sin((x + y) * 0.045) * 1.4;
+      if (x === 0) g.moveTo(x, yy);
+      else         g.lineTo(x, yy);
+    }
+    g.stroke();
+  }
+  g.globalAlpha = 1;
+
+  // ── Scattered scarring streaks (longitudinal scratches) ──────────────────
+  for (let i = 0; i < 24; i++) {
+    const x0 = Math.random() * W;
+    const y0 = H * (0.10 + Math.random() * 0.80);
+    const len = 60 + Math.random() * 220;
+    const angle = (Math.random() - 0.5) * 0.18;
+    g.save();
+    g.translate(x0, y0);
+    g.rotate(angle);
+    const sg = g.createLinearGradient(0, 0, len, 0);
+    sg.addColorStop(0,   'rgba(230, 232, 240, 0)');
+    sg.addColorStop(0.5, `rgba(230, 232, 240, ${0.15 + Math.random() * 0.20})`);
+    sg.addColorStop(1,   'rgba(230, 232, 240, 0)');
+    g.fillStyle = sg;
+    g.fillRect(0, -0.6, len, 1.2);
+    g.restore();
+  }
+
+  // ── Faint orangish barnacle / copepod clusters near the chin ─────────────
+  for (let i = 0; i < 10; i++) {
+    const x = W * (0.78 + Math.random() * 0.20);  // head end
+    const y = H * (0.78 + Math.random() * 0.16);  // ventral
+    const r = 6 + Math.random() * 12;
+    blob(x, y, r, '162, 134, 92', 0.30 + Math.random() * 0.20);
+  }
+
+  // ── Tonal smoothing pass (subtle vignette to suppress hard texture seams)
+  const vg = g.createRadialGradient(W * 0.5, H * 0.5, H * 0.4, W * 0.5, H * 0.5, H * 0.95);
+  vg.addColorStop(0, 'rgba(0, 0, 0, 0)');
+  vg.addColorStop(1, 'rgba(0, 0, 0, 0.08)');
+  g.fillStyle = vg;
+  g.fillRect(0, 0, W, H);
 
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = 4;
+  tex.anisotropy = 8;
   tex.wrapS = THREE.RepeatWrapping;
   tex.wrapT = THREE.ClampToEdgeWrapping;
   return tex;
@@ -1711,7 +1782,21 @@ function makeAmmoniteShellTexture() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// シロナガスクジラ / Blue whale — the largest animal on Earth
+// シロナガスクジラ / Blue whale — the largest animal on Earth (HQ build)
+//
+// Substantially upgraded from the first pass:
+//   - Higher-resolution lathe body (22 profile points, 48 radial segments)
+//     with sculpted U-shaped rostrum, broad-shouldered torso, narrow caudal
+//     peduncle and pronounced caudal keel
+//   - Throat pleats CARVED into the body geometry via vertex displacement
+//     (not overlaid cylinders), so they bend perfectly with the body
+//   - Tubercles (small bumps) along the upper lip
+//   - Carved mouth seam + visible dark baleen plates inside the gape
+//   - Splash-guard nose ridge + paired blowholes with raised splashguard
+//   - Iris-detailed eye (not pure black) seated in a slight socket bulge
+//   - Thickened, slightly bevelled pectoral flippers with curved bone hint
+//   - Falcate (small + back-swept) dorsal fin
+//   - Thick, beveled fluke with up-curled tips and central notch
 // ─────────────────────────────────────────────────────────────────────────────
 
 export class BlueWhale extends Creature {
@@ -1719,38 +1804,99 @@ export class BlueWhale extends Creature {
     const scale = opts.scale ?? 1.0;
     const L     = 18.0 * scale;
     const group = new THREE.Group();
-    const uniforms = makeBendUniforms({ length: L, amp: 0.20, freq: 0.30, tailW: 1.5, curl: 0.55 });
+    const uniforms = makeBendUniforms({ length: L, amp: 0.18, freq: 0.26, tailW: 1.45, curl: 0.55 });
 
-    // ── Body lathe ─────────────────────────────────────────────────────────
+    // ── Body lathe — finer profile with broader shoulders ─────────────────
     const bodyProfile = [
-      new THREE.Vector2(0.010, +L * 0.502),
-      new THREE.Vector2(0.040, +L * 0.486),
-      new THREE.Vector2(0.090, +L * 0.452),
-      new THREE.Vector2(0.180, +L * 0.380),
-      new THREE.Vector2(0.300, +L * 0.270),
-      new THREE.Vector2(0.420, +L * 0.140),
-      new THREE.Vector2(0.520, +L * 0.000),
-      new THREE.Vector2(0.580, -L * 0.130),
-      new THREE.Vector2(0.580, -L * 0.230),
-      new THREE.Vector2(0.560, -L * 0.310),
-      new THREE.Vector2(0.510, -L * 0.380),
-      new THREE.Vector2(0.430, -L * 0.430),
-      new THREE.Vector2(0.330, -L * 0.465),
-      new THREE.Vector2(0.220, -L * 0.487),
+      new THREE.Vector2(0.008, +L * 0.502),   // peduncle tip
+      new THREE.Vector2(0.026, +L * 0.495),
+      new THREE.Vector2(0.054, +L * 0.475),
+      new THREE.Vector2(0.090, +L * 0.450),
+      new THREE.Vector2(0.140, +L * 0.420),
+      new THREE.Vector2(0.210, +L * 0.378),
+      new THREE.Vector2(0.295, +L * 0.318),
+      new THREE.Vector2(0.388, +L * 0.250),
+      new THREE.Vector2(0.480, +L * 0.170),
+      new THREE.Vector2(0.555, +L * 0.080),
+      new THREE.Vector2(0.598, -L * 0.005),   // shoulder peak
+      new THREE.Vector2(0.610, -L * 0.085),
+      new THREE.Vector2(0.605, -L * 0.165),
+      new THREE.Vector2(0.585, -L * 0.235),
+      new THREE.Vector2(0.555, -L * 0.300),
+      new THREE.Vector2(0.510, -L * 0.355),
+      new THREE.Vector2(0.450, -L * 0.405),
+      new THREE.Vector2(0.378, -L * 0.444),
+      new THREE.Vector2(0.298, -L * 0.471),
+      new THREE.Vector2(0.210, -L * 0.488),
       new THREE.Vector2(0.115, -L * 0.498),
       new THREE.Vector2(0.020, -L * 0.502),
     ];
-    const bodyGeo = new THREE.LatheGeometry(bodyProfile, 32);
+    const bodyGeo = new THREE.LatheGeometry(bodyProfile, 48);
     bodyGeo.rotateZ(-Math.PI / 2);
-    // Flatten the top of the rostrum and ease the head into a wedge profile
+
+    // ── Vertex sculpting pass ─────────────────────────────────────────────
+    //   (a) Flatten the top of the rostrum; soften the bottom of the jaw
+    //   (b) Carve longitudinal throat pleats into the belly of the head/chest
+    //   (c) Sharpen the caudal peduncle into a slim keeled shape
+    //   (d) Slight dorsal "splash hump" along the rostrum centerline
     {
       const p = bodyGeo.attributes.position;
+      const PLEAT_COUNT  = 48;
+      const PLEAT_DEPTH  = 0.034 * scale;
+      const PLEAT_X0     = +L * 0.35;   // forward edge of throat (near chin)
+      const PLEAT_X1     = -L * 0.04;   // rear edge (near pectorals)
       for (let i = 0; i < p.count; i++) {
         const x = p.getX(i);
-        const y = p.getY(i);
-        const headFlat = THREE.MathUtils.smoothstep(x, L * 0.10, L * 0.40);
-        if (y > 0) p.setY(i, y * THREE.MathUtils.lerp(1.0, 0.62, headFlat));
-        else        p.setY(i, y * THREE.MathUtils.lerp(1.0, 0.78, headFlat));
+        let y   = p.getY(i);
+        let z   = p.getZ(i);
+
+        // (a) rostrum top flatten + slight U-shape underside
+        const headness  = THREE.MathUtils.smoothstep(x, L * 0.10, L * 0.42);
+        if (y > 0) y *= THREE.MathUtils.lerp(1.0, 0.58, headness);
+        else        y *= THREE.MathUtils.lerp(1.0, 0.78, headness);
+
+        // (c) caudal peduncle: laterally pinch and vertically extend (keel)
+        const tailness = THREE.MathUtils.smoothstep(-x, L * 0.30, L * 0.48);
+        if (tailness > 0) {
+          z *= THREE.MathUtils.lerp(1.0, 0.55, tailness);
+          y *= THREE.MathUtils.lerp(1.0, 0.92, tailness);
+          // Sharpen into a keel by stretching extreme y away from centerline
+          const sign = Math.sign(y);
+          y += sign * 0.04 * scale * tailness;
+        }
+
+        // (b) throat pleats: only on the belly side (y < 0) within the throat
+        const inThroat = (x < PLEAT_X0 && x > PLEAT_X1);
+        if (inThroat && y < 0) {
+          // Compute belly-side angular position around the body axis.
+          // theta=0 → straight down (-y, z=0); theta=±π/2 → sides.
+          const ang = Math.atan2(z, -y);             // ∈ [-π, π]
+          // Restrict pleats to the lower 70% arc — fade out toward sides
+          const sideFade = Math.cos(ang);            // 1 at bottom → 0 at sides
+          if (sideFade > 0.0) {
+            // groove pattern across the belly arc
+            const groove = Math.sin(ang * PLEAT_COUNT);     // [-1, 1]
+            // pull belly vertices radially inward by depth*groove
+            const arc = Math.sqrt(y * y + z * z);
+            if (arc > 1e-4) {
+              // taper the pleat strength along x — strongest near mid-throat
+              const along = (x - PLEAT_X1) / (PLEAT_X0 - PLEAT_X1);
+              const taper = Math.sin(Math.PI * along);     // 0 at edges, 1 at mid
+              const d = PLEAT_DEPTH * groove * sideFade * taper * (0.55 + 0.45 * Math.pow(sideFade, 2));
+              y += (-y / arc) * d;
+              z += ( z / arc) * d * 0.2;                   // mostly radial-down
+            }
+          }
+        }
+
+        // (d) tiny dorsal hump along the rostrum centerline (splash hump)
+        const onTopCenter = (y > 0) && (Math.abs(z) < 0.18 * scale) && (x > L * 0.20) && (x < L * 0.46);
+        if (onTopCenter) {
+          const hump = Math.sin(THREE.MathUtils.smoothstep(x, L * 0.20, L * 0.46) * Math.PI);
+          y += 0.022 * scale * hump;
+        }
+
+        p.setXYZ(i, x, y, z);
       }
       bodyGeo.computeVertexNormals();
     }
@@ -1760,164 +1906,364 @@ export class BlueWhale extends Creature {
       color:              0xffffff,
       map:                bodyTex,
       roughness:          0.55,
-      metalness:          0.06,
-      clearcoat:          0.55,
-      clearcoatRoughness: 0.30,
-      emissive:           new THREE.Color(0x040810),
-      emissiveIntensity:  0.20,
+      metalness:          0.05,
+      clearcoat:          0.65,
+      clearcoatRoughness: 0.28,
+      emissive:           new THREE.Color(0x050a14),
+      emissiveIntensity:  0.22,
     }), uniforms);
     const body = new THREE.Mesh(bodyGeo, bodyMat);
     body.castShadow = !!opts.castShadow;
     group.add(body);
 
-    // ── Throat pleats (rorqual grooves) ────────────────────────────────────
-    const pleatMat = injectWhaleBend(new THREE.MeshStandardMaterial({
-      color: 0x223240, roughness: 0.7, metalness: 0.05,
-      emissive: new THREE.Color(0x05080c), emissiveIntensity: 0.18,
-    }), uniforms);
-    const pleatCount = 36;
-    const px0 = +L * 0.32, px1 = -L * 0.05;
-    for (let i = 0; i < pleatCount; i++) {
-      const t = i / (pleatCount - 1);
-      const z = (t - 0.5) * 0.80 * scale * L * 0.06;
-      const groove = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.018 * scale, 0.018 * scale, (px0 - px1) * 0.96, 4, 1),
-        pleatMat,
-      );
-      groove.rotation.z = Math.PI / 2;
-      // Depth varies — deeper at the midline, shallower toward sides
-      const y = -L * 0.030 - Math.cos(t * Math.PI) * 0.012 * L;
-      groove.position.set((px0 + px1) * 0.5, y, z);
-      group.add(groove);
-    }
-
-    // ── Mouth seam (boundary of upper and lower jaw along the head) ────────
+    // ── Dark pleats accent (very thin strips that ride in the grooves) ────
+    // Adds visible shadow lines along the carved grooves under any lighting.
     {
-      const seamGeo = new THREE.CylinderGeometry(0.025 * scale, 0.025 * scale, L * 0.42, 5, 12);
-      seamGeo.rotateZ(Math.PI / 2);
-      // Curl the seam downward toward the rostrum
-      const p = seamGeo.attributes.position;
-      for (let i = 0; i < p.count; i++) {
-        const x = p.getX(i);
-        const headness = THREE.MathUtils.smoothstep(x, L * 0.05, L * 0.40);
-        p.setY(i, p.getY(i) - headness * 0.08 * L);
-      }
-      seamGeo.computeVertexNormals();
-      seamGeo.translate(+L * 0.22, -L * 0.030, 0);
-      const seamMat = injectWhaleBend(new THREE.MeshStandardMaterial({
-        color: 0x0a0e14, roughness: 0.85,
+      const pleatAccentMat = injectWhaleBend(new THREE.MeshStandardMaterial({
+        color: 0x0d141d, roughness: 0.85, metalness: 0.04,
+        emissive: new THREE.Color(0x04070d), emissiveIntensity: 0.16,
       }), uniforms);
-      const seam = new THREE.Mesh(seamGeo, seamMat);
-      group.add(seam);
+      const PLEAT_COUNT_A = 16;     // accent grooves (a subset of the carved ones)
+      const PX0 = +L * 0.34, PX1 = -L * 0.03;
+      for (let i = 0; i < PLEAT_COUNT_A; i++) {
+        const t = i / (PLEAT_COUNT_A - 1);
+        const ang = (t - 0.5) * Math.PI * 0.70;
+        const groove = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.012 * scale, 0.012 * scale, (PX0 - PX1) * 0.96, 4, 1),
+          pleatAccentMat,
+        );
+        groove.rotation.z = Math.PI / 2;
+        // place each accent in the trough direction (radius dips by groove depth)
+        const baseR = 0.52 * scale;
+        const yOff  = -Math.cos(ang) * baseR;
+        const zOff  =  Math.sin(ang) * baseR * 0.65;
+        groove.position.set((PX0 + PX1) * 0.5, yOff, zOff);
+        group.add(groove);
+      }
     }
 
-    // ── Splash guard ridge atop the rostrum ────────────────────────────────
+    // ── Carved mouth seam + visible baleen plates inside ──────────────────
+    const seamMat = injectWhaleBend(new THREE.MeshStandardMaterial({
+      color: 0x080c14, roughness: 0.85, metalness: 0.04,
+      emissive: new THREE.Color(0x0a1018), emissiveIntensity: 0.12,
+    }), uniforms);
+
+    // Build the seam as a curved torus segment that sweeps from cheek to chin
     {
-      const ridgeGeo = new THREE.CylinderGeometry(0.04 * scale, 0.025 * scale, L * 0.30, 5, 8);
-      ridgeGeo.rotateZ(Math.PI / 2);
-      ridgeGeo.translate(+L * 0.30, +L * 0.046, 0);
-      const ridgeMat = injectWhaleBend(new THREE.MeshStandardMaterial({
-        color: 0x2c3a4a, roughness: 0.55, metalness: 0.05,
-        emissive: new THREE.Color(0x04080c), emissiveIntensity: 0.15,
+      const seamPts = [];
+      const SEG = 32;
+      for (let i = 0; i <= SEG; i++) {
+        const t = i / SEG;
+        const x = THREE.MathUtils.lerp(+L * 0.05, +L * 0.46, t);
+        // Sag down toward the rostrum tip (U-shape from the side)
+        const headness = THREE.MathUtils.smoothstep(x, +L * 0.18, +L * 0.42);
+        const y = -L * (0.018 + 0.060 * headness);
+        seamPts.push(new THREE.Vector3(x, y, 0));
+      }
+      const seamCurve = new THREE.CatmullRomCurve3(seamPts, false);
+      const seamGeo = new THREE.TubeGeometry(seamCurve, 64, 0.028 * scale, 6, false);
+      // Duplicate to both sides via post-bend
+      const seamL = new THREE.Mesh(seamGeo, seamMat);
+      // The seam is a single curve in XY — mirror it to both Z sides by
+      // displacing in Z radially based on body width at that x.
+      // Easier: instantiate two seam meshes offset by z=±width(x).
+      // For simplicity render two angled copies that swing out around the head.
+      const seamWidth = 0.35 * scale * L * 0.18;
+      seamL.position.z = +seamWidth;
+      group.add(seamL);
+      const seamR = new THREE.Mesh(seamGeo, seamMat);
+      seamR.position.z = -seamWidth;
+      group.add(seamR);
+
+      // Central chin seam (the lower mandible's leading edge)
+      const chinGeo = new THREE.TubeGeometry(seamCurve, 64, 0.022 * scale, 6, false);
+      const chin = new THREE.Mesh(chinGeo, seamMat);
+      chin.position.set(0, -L * 0.022, 0);
+      group.add(chin);
+    }
+
+    // Baleen plates: a row of thin parallel dark sheets inside the upper jaw,
+    // suggested as a single dark band that sits flush with the seam.
+    {
+      const baleenMat = injectWhaleBend(new THREE.MeshStandardMaterial({
+        color: 0x111722, roughness: 0.6, metalness: 0.1,
+        side: THREE.DoubleSide,
+        emissive: new THREE.Color(0x07091a), emissiveIntensity: 0.18,
+      }), uniforms);
+      // 14 thin "plates" running across the inside of the upper jaw
+      const PLATES = 18;
+      for (let i = 0; i < PLATES; i++) {
+        const t = i / (PLATES - 1);
+        const x = THREE.MathUtils.lerp(+L * 0.10, +L * 0.44, t);
+        const w = 0.22 * scale * Math.sin(THREE.MathUtils.smoothstep(t, 0.0, 0.7) * Math.PI);
+        const plate = new THREE.Mesh(
+          new THREE.PlaneGeometry(0.010 * scale, w),
+          baleenMat,
+        );
+        plate.rotation.y = Math.PI / 2;
+        plate.position.set(x, -L * 0.034 + w * 0.05, 0);
+        group.add(plate);
+      }
+    }
+
+    // ── Tubercles along the upper lip (the iconic small dark bumps) ──────
+    {
+      const tubMat = new THREE.MeshStandardMaterial({
+        color: 0x161e28, roughness: 0.62, metalness: 0.08,
+        emissive: new THREE.Color(0x040a10), emissiveIntensity: 0.18,
+      });
+      const TUB_COUNT = 22;
+      for (let i = 0; i < TUB_COUNT; i++) {
+        const t = i / (TUB_COUNT - 1);
+        const x = THREE.MathUtils.lerp(+L * 0.18, +L * 0.46, t);
+        const r = 0.025 * scale * (0.7 + Math.random() * 0.5);
+        for (const side of [-1, 1]) {
+          const tub = new THREE.Mesh(new THREE.SphereGeometry(r, 8, 6), tubMat);
+          const z = (0.085 * scale + 0.10 * scale * Math.pow(1 - t, 0.8)) * side;
+          const y = -L * 0.012 + 0.012 * scale * (0.5 + Math.random() * 0.5);
+          tub.position.set(x, y, z);
+          tub.scale.setScalar(0.85 + Math.random() * 0.4);
+          group.add(tub);
+        }
+      }
+    }
+
+    // ── Splash-guard ridge atop the rostrum (raised median crest) ────────
+    {
+      const ridgePts = [
+        new THREE.Vector3(+L * 0.04, +L * 0.020, 0),
+        new THREE.Vector3(+L * 0.16, +L * 0.038, 0),
+        new THREE.Vector3(+L * 0.28, +L * 0.054, 0),
+        new THREE.Vector3(+L * 0.36, +L * 0.060, 0),
+        new THREE.Vector3(+L * 0.42, +L * 0.054, 0),
+        new THREE.Vector3(+L * 0.46, +L * 0.038, 0),
+      ];
+      const ridgeCurve = new THREE.CatmullRomCurve3(ridgePts);
+      const ridgeGeo = new THREE.TubeGeometry(ridgeCurve, 40, 0.040 * scale, 8, false);
+      const ridgeMat = injectWhaleBend(new THREE.MeshPhysicalMaterial({
+        color: 0x2a3848, roughness: 0.55, metalness: 0.06,
+        clearcoat: 0.50, clearcoatRoughness: 0.35,
+        emissive: new THREE.Color(0x04080c), emissiveIntensity: 0.18,
       }), uniforms);
       group.add(new THREE.Mesh(ridgeGeo, ridgeMat));
     }
 
-    // ── Blowholes (paired) ─────────────────────────────────────────────────
-    const blowMat = injectWhaleBend(new THREE.MeshStandardMaterial({
-      color: 0x05080c, roughness: 0.95,
-    }), uniforms);
-    for (const side of [-1, 1]) {
-      const bh = new THREE.Mesh(
-        new THREE.SphereGeometry(0.05 * scale, 10, 6, 0, Math.PI * 2, 0, Math.PI * 0.5),
-        blowMat,
-      );
-      bh.scale.set(1.2 * scale, 0.35 * scale, 0.9 * scale);
-      bh.position.set(+L * 0.30, +L * 0.054, 0.012 * L * side);
-      group.add(bh);
+    // ── Blowhole assembly: raised splashguard + paired vents ──────────────
+    {
+      // Raised crescent splashguard in front of the blowholes
+      const sgPts = [];
+      for (let i = 0; i <= 18; i++) {
+        const t = i / 18;
+        const a = -Math.PI * 0.5 + t * Math.PI;
+        sgPts.push(new THREE.Vector3(
+          +L * 0.255 + Math.sin(a) * 0.012 * L,
+          +L * 0.068 + Math.cos(a) * 0.008 * L,
+          Math.sin(a) * 0.025 * L,
+        ));
+      }
+      const sgCurve = new THREE.CatmullRomCurve3(sgPts);
+      const sgGeo = new THREE.TubeGeometry(sgCurve, 32, 0.028 * scale, 6, false);
+      const sgMat = injectWhaleBend(new THREE.MeshStandardMaterial({
+        color: 0x223044, roughness: 0.55, metalness: 0.08,
+        emissive: new THREE.Color(0x04080c), emissiveIntensity: 0.15,
+      }), uniforms);
+      group.add(new THREE.Mesh(sgGeo, sgMat));
+
+      const blowMat = injectWhaleBend(new THREE.MeshStandardMaterial({
+        color: 0x040608, roughness: 0.95,
+        emissive: new THREE.Color(0x000000), emissiveIntensity: 0,
+      }), uniforms);
+      for (const side of [-1, 1]) {
+        const bh = new THREE.Mesh(
+          new THREE.SphereGeometry(0.045 * scale, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.5),
+          blowMat,
+        );
+        bh.scale.set(1.4, 0.40, 1.0);
+        bh.position.set(+L * 0.295, +L * 0.062, 0.014 * L * side);
+        group.add(bh);
+      }
     }
 
-    // ── Eyes (small, low, behind the corner of the mouth) ──────────────────
-    const eyeMat = injectWhaleBend(new THREE.MeshPhysicalMaterial({
-      color: 0x060608, roughness: 0.12, metalness: 0.10,
-      clearcoat: 0.85, clearcoatRoughness: 0.10,
-      emissive: new THREE.Color(0x1c1c12), emissiveIntensity: 0.30,
-    }), uniforms);
-    for (const side of [-1, 1]) {
-      const e = new THREE.Mesh(new THREE.SphereGeometry(0.075 * scale, 14, 10), eyeMat);
-      e.position.set(+L * 0.20, -L * 0.030, 0.065 * L * side);
-      group.add(e);
+    // ── Eyes — sclera + iris + pupil, seated in a slight socket bulge ────
+    {
+      const socketMat = injectWhaleBend(new THREE.MeshStandardMaterial({
+        color: 0x12181f, roughness: 0.75, metalness: 0.04,
+        emissive: new THREE.Color(0x05080c), emissiveIntensity: 0.18,
+      }), uniforms);
+      const scleraMat = new THREE.MeshPhysicalMaterial({
+        color: 0xc8b48c, roughness: 0.40, metalness: 0.10,
+        clearcoat: 0.95, clearcoatRoughness: 0.10,
+        emissive: new THREE.Color(0x40320c), emissiveIntensity: 0.18,
+      });
+      const irisMat = new THREE.MeshPhysicalMaterial({
+        color: 0x382014, roughness: 0.30, metalness: 0.15,
+        clearcoat: 1.0, clearcoatRoughness: 0.08,
+        emissive: new THREE.Color(0x1a0c04), emissiveIntensity: 0.10,
+      });
+      const pupilMat = new THREE.MeshBasicMaterial({ color: 0x010102 });
+      for (const side of [-1, 1]) {
+        // socket bulge: slight raised lump where the eye sits
+        const socket = new THREE.Mesh(new THREE.SphereGeometry(0.11 * scale, 14, 10), socketMat);
+        socket.position.set(+L * 0.20, -L * 0.030, 0.067 * L * side);
+        socket.scale.set(1.1, 0.95, 0.85);
+        group.add(socket);
+        // sclera
+        const e = new THREE.Mesh(new THREE.SphereGeometry(0.075 * scale, 16, 12), scleraMat);
+        e.position.set(+L * 0.202, -L * 0.030, 0.075 * L * side);
+        group.add(e);
+        // iris
+        const iris = new THREE.Mesh(new THREE.SphereGeometry(0.040 * scale, 14, 10), irisMat);
+        iris.position.set(+L * 0.214, -L * 0.030, 0.078 * L * side);
+        group.add(iris);
+        // pupil
+        const pup = new THREE.Mesh(new THREE.SphereGeometry(0.018 * scale, 10, 8), pupilMat);
+        pup.position.set(+L * 0.218, -L * 0.030, 0.079 * L * side);
+        group.add(pup);
+      }
     }
 
-    // ── Pectoral flippers (long curved blades) ─────────────────────────────
+    // ── Pectoral flippers (thicker, beveled, slightly tapered) ───────────
     const flipMat = injectWhaleBend(new THREE.MeshPhysicalMaterial({
-      color: 0x1b2a3a, roughness: 0.55, metalness: 0.10,
-      clearcoat: 0.45, clearcoatRoughness: 0.30,
+      color: 0x1a2a3c, roughness: 0.55, metalness: 0.10,
+      clearcoat: 0.55, clearcoatRoughness: 0.30,
       side: THREE.DoubleSide,
       emissive: new THREE.Color(0x05080c), emissiveIntensity: 0.22,
     }), uniforms);
     const flippers = [];
     for (const side of [-1, 1]) {
       const s = new THREE.Shape();
-      s.moveTo(0.2, 0);
-      s.quadraticCurveTo(-0.4, 0.35, -1.6, 0.30);
-      s.quadraticCurveTo(-2.4, 0.08, -2.5, 0);
-      s.quadraticCurveTo(-2.0, -0.2, -1.2, -0.32);
-      s.quadraticCurveTo(-0.4, -0.30, 0.2, 0);
-      const fgeo = new THREE.ShapeGeometry(s, 10);
-      fgeo.scale(scale * 1.4, scale * 1.4, scale * 1.4);
+      s.moveTo(0.25, 0);
+      s.bezierCurveTo(-0.20, 0.46, -1.20, 0.40, -2.10, 0.22);
+      s.bezierCurveTo(-2.65, 0.10, -2.85, 0.0, -2.78, -0.04);
+      s.bezierCurveTo(-2.55, -0.16, -1.80, -0.30, -1.10, -0.32);
+      s.bezierCurveTo(-0.50, -0.32, -0.05, -0.20, 0.25, 0);
+      const fgeo = new THREE.ExtrudeGeometry(s, {
+        depth: 0.10,
+        bevelEnabled: true,
+        bevelSize: 0.045,
+        bevelThickness: 0.035,
+        bevelSegments: 3,
+        steps: 1,
+      });
+      fgeo.center();
+      fgeo.scale(scale * 1.45, scale * 1.45, scale * 1.45);
       const flip = new THREE.Mesh(fgeo, flipMat);
-      flip.position.set(-L * 0.08, -L * 0.030, 0.075 * L * side);
-      flip.rotation.set(side > 0 ? -1.0 : 1.0, side > 0 ? -0.35 : 0.35, side > 0 ? -0.25 : 0.25);
+      flip.position.set(-L * 0.080, -L * 0.045, 0.075 * L * side);
+      flip.rotation.set(
+        side > 0 ? -1.05 : 1.05,
+        side > 0 ? -0.40 : 0.40,
+        side > 0 ? -0.28 : 0.28,
+      );
       flip.userData.baseRot = flip.rotation.clone();
       flip.userData.phase = side * 0.8;
+      flip.castShadow = !!opts.castShadow;
       flippers.push(flip);
       group.add(flip);
     }
 
-    // ── Dorsal fin (small triangular, far back) ────────────────────────────
+    // ── Dorsal fin (small, falcate — back-swept hook) ────────────────────
     {
       const s = new THREE.Shape();
-      s.moveTo(0.5, 0);
-      s.quadraticCurveTo(-0.1, 0.95, -0.6, 0.85);
-      s.quadraticCurveTo(-0.55, 0.45, -0.7, 0.05);
-      s.lineTo(-0.65, 0);
-      s.lineTo(0.5, 0);
-      const dgeo = new THREE.ShapeGeometry(s, 8);
-      dgeo.scale(scale * 0.60, scale * 0.60, scale * 0.60);
-      dgeo.translate(-L * 0.32, +L * 0.054, 0);
+      s.moveTo(0.60, 0);
+      s.bezierCurveTo(0.30, 1.05, -0.20, 1.15, -0.78, 0.85);
+      s.bezierCurveTo(-0.55, 0.55, -0.55, 0.30, -0.78, 0.06);
+      s.bezierCurveTo(-0.50, 0.0, 0.15, 0.0, 0.60, 0);
+      const dgeo = new THREE.ExtrudeGeometry(s, {
+        depth: 0.10,
+        bevelEnabled: true,
+        bevelSize: 0.040,
+        bevelThickness: 0.030,
+        bevelSegments: 3,
+        steps: 1,
+      });
+      dgeo.center();
+      dgeo.scale(scale * 0.62, scale * 0.62, scale * 0.62);
+      dgeo.translate(-L * 0.310, +L * 0.058, 0);
       const dorsalMat = injectWhaleBend(new THREE.MeshPhysicalMaterial({
-        color: 0x1b2a3a, roughness: 0.55, metalness: 0.10,
+        color: 0x1a2a3c, roughness: 0.55, metalness: 0.10,
+        clearcoat: 0.55, clearcoatRoughness: 0.30,
         side: THREE.DoubleSide,
         emissive: new THREE.Color(0x05080c), emissiveIntensity: 0.22,
       }), uniforms);
-      group.add(new THREE.Mesh(dgeo, dorsalMat));
+      const dorsal = new THREE.Mesh(dgeo, dorsalMat);
+      dorsal.castShadow = !!opts.castShadow;
+      group.add(dorsal);
     }
 
-    // ── Fluke (large horizontal tail with central notch) ───────────────────
+    // ── Fluke (thick, beveled, with subtly up-curled tips and notch) ─────
     {
       const s = new THREE.Shape();
-      const HW = 0.16 * L, FL = 0.085 * L;
-      s.moveTo(0.005 * L, 0);
-      s.quadraticCurveTo(-FL * 0.3, HW * 0.20,  -FL * 0.55, HW * 0.95);
-      s.quadraticCurveTo(-FL * 0.95, HW * 1.05, -FL * 1.05, HW * 0.85);
-      s.quadraticCurveTo(-FL * 0.80, HW * 0.35, -FL * 0.40, HW * 0.10);
-      s.quadraticCurveTo(-FL * 0.55, 0, -FL * 0.40, -HW * 0.10);
-      s.quadraticCurveTo(-FL * 0.80, -HW * 0.35, -FL * 1.05, -HW * 0.85);
-      s.quadraticCurveTo(-FL * 0.95, -HW * 1.05, -FL * 0.55, -HW * 0.95);
-      s.quadraticCurveTo(-FL * 0.3, -HW * 0.20,  0.005 * L, 0);
-      const fgeo = new THREE.ShapeGeometry(s, 22);
-      fgeo.rotateX(-Math.PI / 2);            // lay it flat in X-Z
+      const HW = 0.165 * L, FL = 0.090 * L;
+      s.moveTo(0.010 * L, 0);
+      s.bezierCurveTo(-FL * 0.18, HW * 0.22, -FL * 0.45, HW * 0.98, -FL * 0.62, HW * 1.05);
+      s.bezierCurveTo(-FL * 0.88, HW * 1.12, -FL * 1.05, HW * 0.88, -FL * 1.10, HW * 0.78);
+      s.bezierCurveTo(-FL * 0.95, HW * 0.40, -FL * 0.65, HW * 0.15, -FL * 0.40, HW * 0.10);
+      // central notch
+      s.bezierCurveTo(-FL * 0.50, HW * 0.04, -FL * 0.56, -HW * 0.04, -FL * 0.40, -HW * 0.10);
+      s.bezierCurveTo(-FL * 0.65, -HW * 0.15, -FL * 0.95, -HW * 0.40, -FL * 1.10, -HW * 0.78);
+      s.bezierCurveTo(-FL * 1.05, -HW * 0.88, -FL * 0.88, -HW * 1.12, -FL * 0.62, -HW * 1.05);
+      s.bezierCurveTo(-FL * 0.45, -HW * 0.98, -FL * 0.18, -HW * 0.22, 0.010 * L, 0);
+      const fgeo = new THREE.ExtrudeGeometry(s, {
+        depth: 0.055 * L,
+        bevelEnabled: true,
+        bevelSize: 0.020 * L,
+        bevelThickness: 0.012 * L,
+        bevelSegments: 4,
+        steps: 1,
+      });
+      // Center along extrude axis so it sits symmetric about Y
+      fgeo.translate(0, 0, -0.0275 * L);
+      // Up-curl the tips slightly
+      {
+        const p = fgeo.attributes.position;
+        for (let i = 0; i < p.count; i++) {
+          const x = p.getX(i);
+          const y = p.getY(i);
+          const tipness = Math.max(0, (Math.abs(y) - HW * 0.5) / (HW * 0.6));
+          if (tipness > 0) {
+            p.setZ(i, p.getZ(i) + tipness * tipness * 0.040 * L);
+          }
+          // Tilt the trailing edge slightly down
+          const trailness = Math.max(0, -x / FL);
+          p.setZ(i, p.getZ(i) - trailness * 0.008 * L);
+        }
+        fgeo.computeVertexNormals();
+      }
+      // Lay flat in X-Z and attach at the tail peduncle
+      fgeo.rotateX(-Math.PI / 2);
       fgeo.translate(-L * 0.46, 0, 0);
       const flukeMat = injectWhaleBend(new THREE.MeshPhysicalMaterial({
-        color: 0x18283a, roughness: 0.55, metalness: 0.08,
-        clearcoat: 0.50, clearcoatRoughness: 0.28,
+        color: 0x18283a, roughness: 0.50, metalness: 0.10,
+        clearcoat: 0.62, clearcoatRoughness: 0.25,
         side: THREE.DoubleSide,
         emissive: new THREE.Color(0x05080c), emissiveIntensity: 0.22,
       }), uniforms);
       const fluke = new THREE.Mesh(fgeo, flukeMat);
       fluke.castShadow = !!opts.castShadow;
       group.add(fluke);
+    }
+
+    // ── Caudal peduncle lateral ridges (gives the keel a sharp edge) ─────
+    {
+      const ridgeMat = injectWhaleBend(new THREE.MeshStandardMaterial({
+        color: 0x152130, roughness: 0.55, metalness: 0.06,
+        emissive: new THREE.Color(0x05080c), emissiveIntensity: 0.15,
+      }), uniforms);
+      const RX0 = -L * 0.26;
+      const RX1 = -L * 0.45;
+      const pts = [];
+      for (let i = 0; i <= 12; i++) {
+        const t = i / 12;
+        const x = THREE.MathUtils.lerp(RX0, RX1, t);
+        pts.push(new THREE.Vector3(x, 0, 0));
+      }
+      const curve = new THREE.CatmullRomCurve3(pts);
+      for (const yOff of [+L * 0.040, -L * 0.040]) {
+        const geo = new THREE.TubeGeometry(curve, 24, 0.014 * scale, 5, false);
+        const r = new THREE.Mesh(geo, ridgeMat);
+        r.position.y = yOff;
+        group.add(r);
+      }
     }
 
     super({
@@ -1929,7 +2275,7 @@ export class BlueWhale extends Creature {
         THREE.MathUtils.randFloatSpread(GIANT_TANK.maxZ * 0.5),
       ),
       cfg: {
-        speed: 5.0, maxAccel: 0.7, turnRate: 0.30,
+        speed: 5.0, maxAccel: 0.65, turnRate: 0.28,
         depthMin: GIANT_TANK.floorY + 18,
         depthMax: GIANT_TANK.maxY - 6,
         wanderMin: 22, wanderMax: 34,
@@ -1942,10 +2288,11 @@ export class BlueWhale extends Creature {
     this._uniforms = uniforms;
     this._flippers = flippers;
     this._pitchTarget = 0;
+    this._breathePhase = Math.random() * Math.PI * 2;
   }
 
   onPickTarget(target) {
-    // Bias toward the upper half of the water column
+    // Bias toward the upper-mid water column
     target.y = THREE.MathUtils.randFloat(
       THREE.MathUtils.lerp(this.cfg.depthMin, this.cfg.depthMax, 0.45),
       this.cfg.depthMax - 4,
@@ -1960,8 +2307,9 @@ export class BlueWhale extends Creature {
     this._pitchTarget = THREE.MathUtils.lerp(this._pitchTarget, targetPitch, Math.min(1, dt * 0.5));
     this._uniforms.uPitch.value = this._pitchTarget;
 
-    this._uniforms.uFreq.value = 0.20 + 0.28 * this.speedNorm;
-    this._uniforms.uAmp.value  = 0.20 + 0.10 * this.speedNorm;
+    // Stroke frequency creeps up with speed; amplitude stays measured
+    this._uniforms.uFreq.value = 0.18 + 0.24 * this.speedNorm;
+    this._uniforms.uAmp.value  = 0.18 + 0.10 * this.speedNorm;
 
     // Subtle body bank into turns
     const rollTarget = -this.turnSignal * 0.10;
@@ -1972,9 +2320,13 @@ export class BlueWhale extends Creature {
     for (const f of this._flippers) {
       const w = Math.sin(time * 0.32 + f.userData.phase);
       const b = f.userData.baseRot;
-      f.rotation.x = b.x + w * 0.20;
+      f.rotation.x = b.x + w * 0.18;
       f.rotation.y = b.y + w * 0.06;
     }
+
+    // Very subtle "breathing" vertical drift — adds a feeling of mass
+    const breathe = Math.sin(time * 0.18 + this._breathePhase) * 0.05;
+    this.vel.y += breathe * dt;
   }
 }
 
