@@ -72,6 +72,40 @@ function injectBend(material, uniforms) {
   return material;
 }
 
+/**
+ * Whale variant — cetaceans pump their fluke VERTICALLY (mammal swimming).
+ * Same uniform names as injectBend so behaviour code is interchangeable.
+ */
+function injectWhaleBend(material, uniforms) {
+  const prev = material.onBeforeCompile;
+  material.onBeforeCompile = (shader, renderer) => {
+    if (prev) prev(shader, renderer);
+    Object.assign(shader.uniforms, uniforms);
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', `#include <common>
+        uniform float uTime;
+        uniform float uTurn;
+        uniform float uPitch;
+        uniform float uAmp;
+        uniform float uFreq;
+        uniform float uLen;
+        uniform float uTailW;
+        uniform float uCurl;
+      `)
+      .replace('#include <begin_vertex>', `
+        vec3 transformed = vec3(position);
+        float bodyS = clamp(transformed.x / (uLen * 0.5), -1.0, 1.0);
+        float tw = pow(clamp(-bodyS, 0.0, 1.0), uTailW);
+        float wave = sin(uTime * uFreq * 6.2831853 - bodyS * 2.6) * uAmp * tw;
+        transformed.y += wave;
+        transformed.z += uTurn * uCurl * tw;
+        transformed.y += -uPitch * tw * 0.40;
+      `);
+  };
+  material.customProgramCacheKey = () => 'whaleBend_v1';
+  return material;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Procedural texture helpers
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1481,6 +1515,991 @@ export class Cameroceras extends Creature {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Blue whale procedural texture: blue-gray dorsal → pale ventral with the
+// signature heavy mottling of irregular pale and dark blotches.
+// ─────────────────────────────────────────────────────────────────────────────
+function makeBlueWhaleTexture() {
+  const W = 1024, H = 256;
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const g = c.getContext('2d');
+
+  // Vertical gradient: slate-blue top → pale belly
+  const grad = g.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0.00, '#1c2a3a');
+  grad.addColorStop(0.45, '#324658');
+  grad.addColorStop(0.72, '#6a7c8c');
+  grad.addColorStop(1.00, '#c0c8d2');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, W, H);
+
+  // Subtle horizontal hue shift (slightly bluer toward head and tail)
+  const hgrad = g.createLinearGradient(0, 0, W, 0);
+  hgrad.addColorStop(0.0, 'rgba(20, 50, 80, 0.10)');
+  hgrad.addColorStop(0.5, 'rgba(0, 0, 0, 0.00)');
+  hgrad.addColorStop(1.0, 'rgba(40, 80, 110, 0.10)');
+  g.fillStyle = hgrad;
+  g.fillRect(0, 0, W, H);
+
+  addNoise(g, W, H, 16);
+
+  // Signature pale mottle blotches
+  for (let i = 0; i < 220; i++) {
+    const x = Math.random() * W;
+    const y = Math.random() * H * 0.88;
+    const r = 6 + Math.random() * 22;
+    const a = 0.18 + Math.random() * 0.30;
+    const rg = g.createRadialGradient(x, y, 0, x, y, r);
+    rg.addColorStop(0,    `rgba(196, 210, 222, ${a})`);
+    rg.addColorStop(0.55, `rgba(196, 210, 222, ${a * 0.35})`);
+    rg.addColorStop(1,    `rgba(196, 210, 222, 0)`);
+    g.fillStyle = rg;
+    g.save();
+    g.translate(x, y);
+    g.rotate(Math.random() * Math.PI);
+    g.scale(1, 0.45 + Math.random() * 0.5);
+    g.beginPath(); g.arc(0, 0, r, 0, Math.PI * 2); g.fill();
+    g.restore();
+  }
+
+  // Darker scattered spots near the dorsal half
+  for (let i = 0; i < 80; i++) {
+    const x = Math.random() * W;
+    const y = Math.random() * H * 0.50;
+    const r = 3 + Math.random() * 10;
+    const a = 0.18 + Math.random() * 0.28;
+    const rg = g.createRadialGradient(x, y, 0, x, y, r);
+    rg.addColorStop(0, `rgba(12, 22, 34, ${a})`);
+    rg.addColorStop(1, `rgba(12, 22, 34, 0)`);
+    g.fillStyle = rg;
+    g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+  }
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.ClampToEdgeWrapping;
+  return tex;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Frilled shark procedural texture: very dark olive-brown with mottling and
+// faint longitudinal stripes; pale cream specks along the underside.
+// ─────────────────────────────────────────────────────────────────────────────
+function makeFrilledSharkTexture() {
+  const W = 1024, H = 256;
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const g = c.getContext('2d');
+
+  const grad = g.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0.00, '#1d160e');
+  grad.addColorStop(0.40, '#2b2117');
+  grad.addColorStop(0.75, '#3a2d1f');
+  grad.addColorStop(1.00, '#4a3a28');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, W, H);
+
+  addNoise(g, W, H, 26);
+
+  // Irregular dark blotches
+  for (let i = 0; i < 110; i++) {
+    const x = Math.random() * W;
+    const y = Math.random() * H;
+    const r = 6 + Math.random() * 30;
+    const a = 0.18 + Math.random() * 0.30;
+    const rg = g.createRadialGradient(x, y, 0, x, y, r);
+    rg.addColorStop(0, `rgba(8, 6, 4, ${a})`);
+    rg.addColorStop(1, `rgba(8, 6, 4, 0)`);
+    g.fillStyle = rg;
+    g.beginPath();
+    g.ellipse(x, y, r * (0.7 + Math.random() * 0.5), r * (0.5 + Math.random() * 0.4),
+              Math.random() * Math.PI, 0, Math.PI * 2);
+    g.fill();
+  }
+
+  // Faint longitudinal striping
+  g.globalAlpha = 0.10;
+  g.strokeStyle = '#0a0604';
+  for (let y = 0; y < H; y += 6) {
+    g.lineWidth = 0.6 + Math.random() * 0.6;
+    g.beginPath();
+    for (let x = 0; x <= W; x += 6) {
+      const yy = y + Math.sin((x + y) * 0.06) * 1.0;
+      if (x === 0) g.moveTo(x, yy);
+      else g.lineTo(x, yy);
+    }
+    g.stroke();
+  }
+  g.globalAlpha = 1;
+
+  // Cream specks (counter-shading along the belly)
+  for (let i = 0; i < 60; i++) {
+    const x = Math.random() * W;
+    const y = H * (0.7 + Math.random() * 0.3);
+    const r = 1.2 + Math.random() * 1.8;
+    g.fillStyle = `rgba(220, 200, 160, ${0.12 + Math.random() * 0.18})`;
+    g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+  }
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.ClampToEdgeWrapping;
+  return tex;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Ammonite shell texture: alternating warm tan and dark brown bands with
+// pearly highlights and organic speckle.
+// ─────────────────────────────────────────────────────────────────────────────
+function makeAmmoniteShellTexture() {
+  const W = 1024, H = 256;
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const g = c.getContext('2d');
+
+  const grad = g.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0.00, '#705036');
+  grad.addColorStop(0.50, '#a07349');
+  grad.addColorStop(1.00, '#cba98a');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, W, H);
+
+  // Wide alternating bands of cream + dark brown
+  for (let i = 0; i < 22; i++) {
+    const x = (i / 22) * W;
+    const bw = (Math.random() * 0.6 + 0.4) * (W / 22);
+    g.fillStyle = i % 2 === 0
+      ? `rgba(50, 32, 18, ${0.22 + Math.random() * 0.18})`
+      : `rgba(245, 230, 200, ${0.18 + Math.random() * 0.18})`;
+    g.fillRect(x, 0, bw, H);
+  }
+
+  addNoise(g, W, H, 22);
+
+  // Pearly highlight streaks
+  g.globalAlpha = 0.20;
+  g.strokeStyle = '#fff6d8';
+  for (let i = 0; i < 48; i++) {
+    const x = Math.random() * W;
+    g.lineWidth = 0.4 + Math.random() * 1.2;
+    g.beginPath();
+    g.moveTo(x, 0);
+    g.lineTo(x + (Math.random() - 0.5) * 22, H);
+    g.stroke();
+  }
+  g.globalAlpha = 1;
+
+  // Organic speckles
+  for (let i = 0; i < 240; i++) {
+    const x = Math.random() * W;
+    const y = Math.random() * H;
+    const r = 0.4 + Math.random() * 1.8;
+    g.fillStyle = `rgba(${20 + Math.random() * 40 | 0}, ${10 + Math.random() * 25 | 0}, ${5 + Math.random() * 15 | 0}, ${0.30 + Math.random() * 0.30})`;
+    g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+  }
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  return tex;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// シロナガスクジラ / Blue whale — the largest animal on Earth
+// ─────────────────────────────────────────────────────────────────────────────
+
+export class BlueWhale extends Creature {
+  constructor(opts = {}) {
+    const scale = opts.scale ?? 1.0;
+    const L     = 18.0 * scale;
+    const group = new THREE.Group();
+    const uniforms = makeBendUniforms({ length: L, amp: 0.20, freq: 0.30, tailW: 1.5, curl: 0.55 });
+
+    // ── Body lathe ─────────────────────────────────────────────────────────
+    const bodyProfile = [
+      new THREE.Vector2(0.010, +L * 0.502),
+      new THREE.Vector2(0.040, +L * 0.486),
+      new THREE.Vector2(0.090, +L * 0.452),
+      new THREE.Vector2(0.180, +L * 0.380),
+      new THREE.Vector2(0.300, +L * 0.270),
+      new THREE.Vector2(0.420, +L * 0.140),
+      new THREE.Vector2(0.520, +L * 0.000),
+      new THREE.Vector2(0.580, -L * 0.130),
+      new THREE.Vector2(0.580, -L * 0.230),
+      new THREE.Vector2(0.560, -L * 0.310),
+      new THREE.Vector2(0.510, -L * 0.380),
+      new THREE.Vector2(0.430, -L * 0.430),
+      new THREE.Vector2(0.330, -L * 0.465),
+      new THREE.Vector2(0.220, -L * 0.487),
+      new THREE.Vector2(0.115, -L * 0.498),
+      new THREE.Vector2(0.020, -L * 0.502),
+    ];
+    const bodyGeo = new THREE.LatheGeometry(bodyProfile, 32);
+    bodyGeo.rotateZ(-Math.PI / 2);
+    // Flatten the top of the rostrum and ease the head into a wedge profile
+    {
+      const p = bodyGeo.attributes.position;
+      for (let i = 0; i < p.count; i++) {
+        const x = p.getX(i);
+        const y = p.getY(i);
+        const headFlat = THREE.MathUtils.smoothstep(x, L * 0.10, L * 0.40);
+        if (y > 0) p.setY(i, y * THREE.MathUtils.lerp(1.0, 0.62, headFlat));
+        else        p.setY(i, y * THREE.MathUtils.lerp(1.0, 0.78, headFlat));
+      }
+      bodyGeo.computeVertexNormals();
+    }
+
+    const bodyTex = makeBlueWhaleTexture();
+    const bodyMat = injectWhaleBend(new THREE.MeshPhysicalMaterial({
+      color:              0xffffff,
+      map:                bodyTex,
+      roughness:          0.55,
+      metalness:          0.06,
+      clearcoat:          0.55,
+      clearcoatRoughness: 0.30,
+      emissive:           new THREE.Color(0x040810),
+      emissiveIntensity:  0.20,
+    }), uniforms);
+    const body = new THREE.Mesh(bodyGeo, bodyMat);
+    body.castShadow = !!opts.castShadow;
+    group.add(body);
+
+    // ── Throat pleats (rorqual grooves) ────────────────────────────────────
+    const pleatMat = injectWhaleBend(new THREE.MeshStandardMaterial({
+      color: 0x223240, roughness: 0.7, metalness: 0.05,
+      emissive: new THREE.Color(0x05080c), emissiveIntensity: 0.18,
+    }), uniforms);
+    const pleatCount = 36;
+    const px0 = +L * 0.32, px1 = -L * 0.05;
+    for (let i = 0; i < pleatCount; i++) {
+      const t = i / (pleatCount - 1);
+      const z = (t - 0.5) * 0.80 * scale * L * 0.06;
+      const groove = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.018 * scale, 0.018 * scale, (px0 - px1) * 0.96, 4, 1),
+        pleatMat,
+      );
+      groove.rotation.z = Math.PI / 2;
+      // Depth varies — deeper at the midline, shallower toward sides
+      const y = -L * 0.030 - Math.cos(t * Math.PI) * 0.012 * L;
+      groove.position.set((px0 + px1) * 0.5, y, z);
+      group.add(groove);
+    }
+
+    // ── Mouth seam (boundary of upper and lower jaw along the head) ────────
+    {
+      const seamGeo = new THREE.CylinderGeometry(0.025 * scale, 0.025 * scale, L * 0.42, 5, 12);
+      seamGeo.rotateZ(Math.PI / 2);
+      // Curl the seam downward toward the rostrum
+      const p = seamGeo.attributes.position;
+      for (let i = 0; i < p.count; i++) {
+        const x = p.getX(i);
+        const headness = THREE.MathUtils.smoothstep(x, L * 0.05, L * 0.40);
+        p.setY(i, p.getY(i) - headness * 0.08 * L);
+      }
+      seamGeo.computeVertexNormals();
+      seamGeo.translate(+L * 0.22, -L * 0.030, 0);
+      const seamMat = injectWhaleBend(new THREE.MeshStandardMaterial({
+        color: 0x0a0e14, roughness: 0.85,
+      }), uniforms);
+      const seam = new THREE.Mesh(seamGeo, seamMat);
+      group.add(seam);
+    }
+
+    // ── Splash guard ridge atop the rostrum ────────────────────────────────
+    {
+      const ridgeGeo = new THREE.CylinderGeometry(0.04 * scale, 0.025 * scale, L * 0.30, 5, 8);
+      ridgeGeo.rotateZ(Math.PI / 2);
+      ridgeGeo.translate(+L * 0.30, +L * 0.046, 0);
+      const ridgeMat = injectWhaleBend(new THREE.MeshStandardMaterial({
+        color: 0x2c3a4a, roughness: 0.55, metalness: 0.05,
+        emissive: new THREE.Color(0x04080c), emissiveIntensity: 0.15,
+      }), uniforms);
+      group.add(new THREE.Mesh(ridgeGeo, ridgeMat));
+    }
+
+    // ── Blowholes (paired) ─────────────────────────────────────────────────
+    const blowMat = injectWhaleBend(new THREE.MeshStandardMaterial({
+      color: 0x05080c, roughness: 0.95,
+    }), uniforms);
+    for (const side of [-1, 1]) {
+      const bh = new THREE.Mesh(
+        new THREE.SphereGeometry(0.05 * scale, 10, 6, 0, Math.PI * 2, 0, Math.PI * 0.5),
+        blowMat,
+      );
+      bh.scale.set(1.2 * scale, 0.35 * scale, 0.9 * scale);
+      bh.position.set(+L * 0.30, +L * 0.054, 0.012 * L * side);
+      group.add(bh);
+    }
+
+    // ── Eyes (small, low, behind the corner of the mouth) ──────────────────
+    const eyeMat = injectWhaleBend(new THREE.MeshPhysicalMaterial({
+      color: 0x060608, roughness: 0.12, metalness: 0.10,
+      clearcoat: 0.85, clearcoatRoughness: 0.10,
+      emissive: new THREE.Color(0x1c1c12), emissiveIntensity: 0.30,
+    }), uniforms);
+    for (const side of [-1, 1]) {
+      const e = new THREE.Mesh(new THREE.SphereGeometry(0.075 * scale, 14, 10), eyeMat);
+      e.position.set(+L * 0.20, -L * 0.030, 0.065 * L * side);
+      group.add(e);
+    }
+
+    // ── Pectoral flippers (long curved blades) ─────────────────────────────
+    const flipMat = injectWhaleBend(new THREE.MeshPhysicalMaterial({
+      color: 0x1b2a3a, roughness: 0.55, metalness: 0.10,
+      clearcoat: 0.45, clearcoatRoughness: 0.30,
+      side: THREE.DoubleSide,
+      emissive: new THREE.Color(0x05080c), emissiveIntensity: 0.22,
+    }), uniforms);
+    const flippers = [];
+    for (const side of [-1, 1]) {
+      const s = new THREE.Shape();
+      s.moveTo(0.2, 0);
+      s.quadraticCurveTo(-0.4, 0.35, -1.6, 0.30);
+      s.quadraticCurveTo(-2.4, 0.08, -2.5, 0);
+      s.quadraticCurveTo(-2.0, -0.2, -1.2, -0.32);
+      s.quadraticCurveTo(-0.4, -0.30, 0.2, 0);
+      const fgeo = new THREE.ShapeGeometry(s, 10);
+      fgeo.scale(scale * 1.4, scale * 1.4, scale * 1.4);
+      const flip = new THREE.Mesh(fgeo, flipMat);
+      flip.position.set(-L * 0.08, -L * 0.030, 0.075 * L * side);
+      flip.rotation.set(side > 0 ? -1.0 : 1.0, side > 0 ? -0.35 : 0.35, side > 0 ? -0.25 : 0.25);
+      flip.userData.baseRot = flip.rotation.clone();
+      flip.userData.phase = side * 0.8;
+      flippers.push(flip);
+      group.add(flip);
+    }
+
+    // ── Dorsal fin (small triangular, far back) ────────────────────────────
+    {
+      const s = new THREE.Shape();
+      s.moveTo(0.5, 0);
+      s.quadraticCurveTo(-0.1, 0.95, -0.6, 0.85);
+      s.quadraticCurveTo(-0.55, 0.45, -0.7, 0.05);
+      s.lineTo(-0.65, 0);
+      s.lineTo(0.5, 0);
+      const dgeo = new THREE.ShapeGeometry(s, 8);
+      dgeo.scale(scale * 0.60, scale * 0.60, scale * 0.60);
+      dgeo.translate(-L * 0.32, +L * 0.054, 0);
+      const dorsalMat = injectWhaleBend(new THREE.MeshPhysicalMaterial({
+        color: 0x1b2a3a, roughness: 0.55, metalness: 0.10,
+        side: THREE.DoubleSide,
+        emissive: new THREE.Color(0x05080c), emissiveIntensity: 0.22,
+      }), uniforms);
+      group.add(new THREE.Mesh(dgeo, dorsalMat));
+    }
+
+    // ── Fluke (large horizontal tail with central notch) ───────────────────
+    {
+      const s = new THREE.Shape();
+      const HW = 0.16 * L, FL = 0.085 * L;
+      s.moveTo(0.005 * L, 0);
+      s.quadraticCurveTo(-FL * 0.3, HW * 0.20,  -FL * 0.55, HW * 0.95);
+      s.quadraticCurveTo(-FL * 0.95, HW * 1.05, -FL * 1.05, HW * 0.85);
+      s.quadraticCurveTo(-FL * 0.80, HW * 0.35, -FL * 0.40, HW * 0.10);
+      s.quadraticCurveTo(-FL * 0.55, 0, -FL * 0.40, -HW * 0.10);
+      s.quadraticCurveTo(-FL * 0.80, -HW * 0.35, -FL * 1.05, -HW * 0.85);
+      s.quadraticCurveTo(-FL * 0.95, -HW * 1.05, -FL * 0.55, -HW * 0.95);
+      s.quadraticCurveTo(-FL * 0.3, -HW * 0.20,  0.005 * L, 0);
+      const fgeo = new THREE.ShapeGeometry(s, 22);
+      fgeo.rotateX(-Math.PI / 2);            // lay it flat in X-Z
+      fgeo.translate(-L * 0.46, 0, 0);
+      const flukeMat = injectWhaleBend(new THREE.MeshPhysicalMaterial({
+        color: 0x18283a, roughness: 0.55, metalness: 0.08,
+        clearcoat: 0.50, clearcoatRoughness: 0.28,
+        side: THREE.DoubleSide,
+        emissive: new THREE.Color(0x05080c), emissiveIntensity: 0.22,
+      }), uniforms);
+      const fluke = new THREE.Mesh(fgeo, flukeMat);
+      fluke.castShadow = !!opts.castShadow;
+      group.add(fluke);
+    }
+
+    super({
+      species: 'bluewhale',
+      mesh: group,
+      position: new THREE.Vector3(
+        THREE.MathUtils.randFloatSpread(GIANT_TANK.maxX * 0.5),
+        THREE.MathUtils.randFloat(0, GIANT_TANK.maxY - 12),
+        THREE.MathUtils.randFloatSpread(GIANT_TANK.maxZ * 0.5),
+      ),
+      cfg: {
+        speed: 5.0, maxAccel: 0.7, turnRate: 0.30,
+        depthMin: GIANT_TANK.floorY + 18,
+        depthMax: GIANT_TANK.maxY - 6,
+        wanderMin: 22, wanderMax: 34,
+        wallMargin: 30,
+        bounds: GIANT_TANK,
+        facesVelocity: true,
+      },
+    });
+
+    this._uniforms = uniforms;
+    this._flippers = flippers;
+    this._pitchTarget = 0;
+  }
+
+  onPickTarget(target) {
+    // Bias toward the upper half of the water column
+    target.y = THREE.MathUtils.randFloat(
+      THREE.MathUtils.lerp(this.cfg.depthMin, this.cfg.depthMax, 0.45),
+      this.cfg.depthMax - 4,
+    );
+  }
+
+  onUpdate(dt, time) {
+    this._uniforms.uTime.value = time;
+    this._uniforms.uTurn.value = this.turnSignal;
+
+    const targetPitch = THREE.MathUtils.clamp(this.vel.y / Math.max(this.cfg.speed, 0.01), -0.55, 0.55);
+    this._pitchTarget = THREE.MathUtils.lerp(this._pitchTarget, targetPitch, Math.min(1, dt * 0.5));
+    this._uniforms.uPitch.value = this._pitchTarget;
+
+    this._uniforms.uFreq.value = 0.20 + 0.28 * this.speedNorm;
+    this._uniforms.uAmp.value  = 0.20 + 0.10 * this.speedNorm;
+
+    // Subtle body bank into turns
+    const rollTarget = -this.turnSignal * 0.10;
+    this.mesh.rotation.x = THREE.MathUtils.lerp(this.mesh.rotation.x, rollTarget, Math.min(1, dt * 1.2));
+    this.mesh.rotation.z = THREE.MathUtils.lerp(this.mesh.rotation.z, this._pitchTarget * 0.20, Math.min(1, dt * 1.4));
+
+    // Flippers scull slowly with the fluke phase
+    for (const f of this._flippers) {
+      const w = Math.sin(time * 0.32 + f.userData.phase);
+      const b = f.userData.baseRot;
+      f.rotation.x = b.x + w * 0.20;
+      f.rotation.y = b.y + w * 0.06;
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ラブカ / Frilled shark — "living fossil" deep-sea shark
+// ─────────────────────────────────────────────────────────────────────────────
+
+export class FrilledShark extends Creature {
+  constructor(opts = {}) {
+    const scale = opts.scale ?? 1.0;
+    const L     = 8.0 * scale;
+    const group = new THREE.Group();
+    const uniforms = makeBendUniforms({
+      length: L,
+      amp: 0.32, freq: 0.55,
+      tailW: 0.75,        // < 1 → wave spreads across the entire body (eel-like)
+      curl: 0.50,
+    });
+
+    // ── Body lathe — slender, nearly uniform tube ─────────────────────────
+    const bodyProfile = [
+      new THREE.Vector2(0.008, +L * 0.502),
+      new THREE.Vector2(0.060, +L * 0.470),
+      new THREE.Vector2(0.130, +L * 0.380),
+      new THREE.Vector2(0.190, +L * 0.260),
+      new THREE.Vector2(0.225, +L * 0.120),
+      new THREE.Vector2(0.235, -L * 0.030),
+      new THREE.Vector2(0.232, -L * 0.140),
+      new THREE.Vector2(0.225, -L * 0.260),
+      new THREE.Vector2(0.220, -L * 0.355),
+      new THREE.Vector2(0.215, -L * 0.420),
+      new THREE.Vector2(0.190, -L * 0.460),
+      new THREE.Vector2(0.150, -L * 0.485),
+      new THREE.Vector2(0.090, -L * 0.498),
+      new THREE.Vector2(0.012, -L * 0.502),
+    ];
+    const bodyGeo = new THREE.LatheGeometry(bodyProfile, 22);
+    bodyGeo.rotateZ(-Math.PI / 2);
+    // Slight lateral flattening — eel cross-section is taller than wide
+    {
+      const p = bodyGeo.attributes.position;
+      for (let i = 0; i < p.count; i++) {
+        p.setY(i, p.getY(i) * 1.16);
+        p.setZ(i, p.getZ(i) * 0.86);
+      }
+      bodyGeo.computeVertexNormals();
+    }
+
+    const bodyTex = makeFrilledSharkTexture();
+    const bodyMat = injectBend(new THREE.MeshPhysicalMaterial({
+      color:              0xffffff,
+      map:                bodyTex,
+      roughness:          0.62,
+      metalness:          0.12,
+      clearcoat:          0.30,
+      clearcoatRoughness: 0.45,
+      emissive:           new THREE.Color(0x080604),
+      emissiveIntensity:  0.30,
+    }), uniforms);
+    const body = new THREE.Mesh(bodyGeo, bodyMat);
+    body.castShadow = !!opts.castShadow;
+    group.add(body);
+
+    // ── Six pairs of frilly gill rings around the front body ─────────────
+    const gillMat = injectBend(new THREE.MeshStandardMaterial({
+      color: 0x9a8266, roughness: 0.45, metalness: 0.12,
+      side: THREE.DoubleSide,
+      emissive: new THREE.Color(0x1a1208), emissiveIntensity: 0.40,
+    }), uniforms);
+    const darkGillMat = injectBend(new THREE.MeshStandardMaterial({
+      color: 0x1a1006, roughness: 0.7, side: THREE.DoubleSide,
+    }), uniforms);
+    // Approximate the body radius at a given x by sampling the lathe profile
+    const sampleR = (x) => {
+      for (let i = 0; i < bodyProfile.length - 1; i++) {
+        const a = bodyProfile[i], b = bodyProfile[i + 1];
+        const ax = a.y, bx = b.y;
+        if ((ax <= x && bx >= x) || (bx <= x && ax >= x)) {
+          const t = (x - ax) / (bx - ax || 1e-6);
+          return THREE.MathUtils.lerp(a.x, b.x, t);
+        }
+      }
+      return 0.10;
+    };
+    for (let i = 0; i < 6; i++) {
+      const t = i / 5;
+      const x = THREE.MathUtils.lerp(+L * 0.40, +L * 0.18, t);
+      const bodyR = sampleR(x) + 0.020 * scale;
+      const frillR = bodyR + 0.055 * scale;
+
+      const shp = new THREE.Shape();
+      const segs = 40;
+      for (let s = 0; s <= segs; s++) {
+        const a = (s / segs) * Math.PI * 2;
+        const ruffle = 1 + Math.sin(a * 12) * 0.05;
+        const r = frillR * ruffle;
+        if (s === 0) shp.moveTo(r * Math.cos(a), r * Math.sin(a));
+        else         shp.lineTo(r * Math.cos(a), r * Math.sin(a));
+      }
+      const hole = new THREE.Path();
+      for (let s = 0; s <= segs; s++) {
+        const a = (s / segs) * Math.PI * 2;
+        const r = bodyR * 0.92;
+        if (s === 0) hole.moveTo(r * Math.cos(a), r * Math.sin(a));
+        else         hole.lineTo(r * Math.cos(a), r * Math.sin(a));
+      }
+      shp.holes.push(hole);
+      const ringGeo = new THREE.ShapeGeometry(shp, 1);
+      ringGeo.rotateY(Math.PI / 2);
+      ringGeo.translate(x, 0, 0);
+      group.add(new THREE.Mesh(ringGeo, gillMat));
+
+      // Dark slit just behind each frill
+      const slit = new THREE.Mesh(
+        new THREE.TorusGeometry(bodyR * 0.96, 0.014 * scale, 6, 30),
+        darkGillMat,
+      );
+      slit.rotation.y = Math.PI / 2;
+      slit.position.set(x - 0.018 * scale, 0, 0);
+      group.add(slit);
+    }
+
+    // ── Continuous dorsal+caudal ribbon along the back third ──────────────
+    const ribbonMat = injectBend(new THREE.MeshStandardMaterial({
+      color: 0x2c2218, roughness: 0.6, metalness: 0.06,
+      side: THREE.DoubleSide,
+      emissive: new THREE.Color(0x0a0604), emissiveIntensity: 0.30,
+    }), uniforms);
+    {
+      const s = new THREE.Shape();
+      const x0 = +L * 0.05, x1 = -L * 0.50;
+      const segs = 28;
+      s.moveTo(x0, 0);
+      for (let i = 1; i <= segs; i++) {
+        const t = i / segs;
+        const x = THREE.MathUtils.lerp(x0, x1, t);
+        const peak = Math.pow(t, 1.7);
+        s.lineTo(x, (0.04 + 0.42 * peak) * scale);
+      }
+      s.lineTo(x1, 0);
+      for (let i = segs; i >= 0; i--) {
+        const t = i / segs;
+        const x = THREE.MathUtils.lerp(x0, x1, t);
+        s.lineTo(x, -0.02 * scale);
+      }
+      group.add(new THREE.Mesh(new THREE.ShapeGeometry(s, 2), ribbonMat));
+    }
+    {
+      const s = new THREE.Shape();
+      const x0 = -L * 0.05, x1 = -L * 0.49;
+      const segs = 22;
+      s.moveTo(x0, 0);
+      for (let i = 1; i <= segs; i++) {
+        const t = i / segs;
+        const x = THREE.MathUtils.lerp(x0, x1, t);
+        const peak = Math.pow(t, 1.6);
+        s.lineTo(x, -(0.03 + 0.32 * peak) * scale);
+      }
+      s.lineTo(x1, 0);
+      for (let i = segs; i >= 0; i--) {
+        const t = i / segs;
+        const x = THREE.MathUtils.lerp(x0, x1, t);
+        s.lineTo(x, 0.02 * scale);
+      }
+      group.add(new THREE.Mesh(new THREE.ShapeGeometry(s, 2), ribbonMat));
+    }
+
+    // ── Small pectoral fins ───────────────────────────────────────────────
+    const pecMat = injectBend(new THREE.MeshStandardMaterial({
+      color: 0x3a2e20, roughness: 0.6, side: THREE.DoubleSide,
+      emissive: new THREE.Color(0x0a0604), emissiveIntensity: 0.25,
+    }), uniforms);
+    const pectorals = [];
+    for (const side of [-1, 1]) {
+      const sp = new THREE.Shape();
+      sp.moveTo(0.10, 0);
+      sp.quadraticCurveTo(-0.05, 0.04, -0.35, 0.04);
+      sp.quadraticCurveTo(-0.55, 0, -0.30, -0.05);
+      sp.quadraticCurveTo(-0.05, -0.04, 0.10, 0);
+      const pgeo = new THREE.ShapeGeometry(sp, 4);
+      pgeo.scale(scale * 1.2, scale * 1.2, scale * 1.2);
+      pgeo.translate(+L * 0.13, 0, 0);
+      const pec = new THREE.Mesh(pgeo, pecMat);
+      pec.position.set(0, -0.12 * scale, 0.22 * scale * side);
+      pec.rotation.set(side > 0 ? -1.05 : 1.05, side > 0 ? -0.4 : 0.4, 0);
+      pec.userData.baseRotZ = pec.rotation.z;
+      pec.userData.phase = side * 0.9;
+      pectorals.push(pec);
+      group.add(pec);
+    }
+
+    // ── Cavity for the gaping terminal mouth ──────────────────────────────
+    const mouthGeo = new THREE.SphereGeometry(0.18 * scale, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.55);
+    mouthGeo.rotateZ(Math.PI / 2);
+    mouthGeo.scale(1.6, 0.7, 1.0);
+    mouthGeo.translate(+L * 0.46, -0.02, 0);
+    group.add(new THREE.Mesh(mouthGeo, new THREE.MeshStandardMaterial({
+      color: 0x080404, roughness: 0.9, side: THREE.BackSide,
+      emissive: new THREE.Color(0x100806), emissiveIntensity: 0.12,
+    })));
+
+    // ── Trident teeth (two rows along the jaw) ────────────────────────────
+    const toothMat = new THREE.MeshPhysicalMaterial({
+      color: 0xf2eadc, roughness: 0.25, metalness: 0.12,
+      clearcoat: 0.95, clearcoatRoughness: 0.05,
+      emissive: new THREE.Color(0xaaa080), emissiveIntensity: 0.18,
+    });
+    const toothGeo = new THREE.ConeGeometry(0.018 * scale, 0.08 * scale, 4);
+    toothGeo.translate(0, -0.04 * scale, 0);
+    for (let i = 0; i < 34; i++) {
+      const t = i / 33;
+      const ang = THREE.MathUtils.lerp(-1.15, 1.15, t);
+      const r = 0.135 * scale;
+      const upper = new THREE.Mesh(toothGeo, toothMat);
+      upper.position.set(+L * 0.44, 0.025 * scale, Math.sin(ang) * r);
+      upper.rotation.x = Math.cos(ang) * 0.6;
+      upper.rotation.z = -0.20;
+      group.add(upper);
+      const lower = new THREE.Mesh(toothGeo, toothMat);
+      lower.position.set(+L * 0.44, -0.07 * scale, Math.sin(ang) * r);
+      lower.rotation.x = Math.cos(ang) * 0.6;
+      lower.rotation.z = Math.PI + 0.20;
+      group.add(lower);
+    }
+
+    // ── Eyes ──────────────────────────────────────────────────────────────
+    const eyeMat = new THREE.MeshPhysicalMaterial({
+      color: 0x141008, roughness: 0.20, metalness: 0.6,
+      clearcoat: 0.85, clearcoatRoughness: 0.08,
+      emissive: new THREE.Color(0x665522), emissiveIntensity: 0.45,
+    });
+    const pupilMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+    for (const side of [-1, 1]) {
+      const e = new THREE.Mesh(new THREE.SphereGeometry(0.07 * scale, 12, 8), eyeMat);
+      e.position.set(+L * 0.405, 0.085 * scale, 0.135 * scale * side);
+      group.add(e);
+      const p = new THREE.Mesh(new THREE.SphereGeometry(0.025 * scale, 8, 6), pupilMat);
+      p.position.set(+L * 0.420, 0.088 * scale, 0.155 * scale * side);
+      group.add(p);
+    }
+
+    super({
+      species: 'frilledshark',
+      mesh: group,
+      position: new THREE.Vector3(
+        THREE.MathUtils.randFloatSpread(GIANT_TANK.maxX * 0.65),
+        THREE.MathUtils.randFloat(GIANT_TANK.floorY + 8, GIANT_TANK.floorY + 36),
+        THREE.MathUtils.randFloatSpread(GIANT_TANK.maxZ * 0.65),
+      ),
+      cfg: {
+        speed: 3.6, maxAccel: 0.9, turnRate: 0.55,
+        depthMin: GIANT_TANK.floorY + 6,
+        depthMax: GIANT_TANK.floorY + 50,    // prefers the lower water column
+        wanderMin: 14, wanderMax: 22,
+        wallMargin: 16,
+        bounds: GIANT_TANK,
+        facesVelocity: true,
+      },
+    });
+
+    this._uniforms = uniforms;
+    this._pectorals = pectorals;
+    this._pitchTarget = 0;
+  }
+
+  onPickTarget(target) {
+    // Strong bias to the bottom half of the tank — deep-water dweller
+    if (Math.random() < 0.75) {
+      target.y = THREE.MathUtils.randFloat(this.cfg.depthMin, this.cfg.depthMin + 20);
+    }
+  }
+
+  onUpdate(dt, time) {
+    this._uniforms.uTime.value = time;
+    this._uniforms.uTurn.value = this.turnSignal;
+
+    const targetPitch = THREE.MathUtils.clamp(this.vel.y / Math.max(this.cfg.speed, 0.01), -0.75, 0.75);
+    this._pitchTarget = THREE.MathUtils.lerp(this._pitchTarget, targetPitch, Math.min(1, dt * 1.0));
+    this._uniforms.uPitch.value = this._pitchTarget;
+
+    this._uniforms.uFreq.value = 0.45 + 0.40 * this.speedNorm;
+    this._uniforms.uAmp.value  = 0.28 + 0.10 * this.speedNorm;
+
+    const rollTarget = -this.turnSignal * 0.20;
+    this.mesh.rotation.x = THREE.MathUtils.lerp(this.mesh.rotation.x, rollTarget, Math.min(1, dt * 2.0));
+    this.mesh.rotation.z = THREE.MathUtils.lerp(this.mesh.rotation.z, this._pitchTarget * 0.30, Math.min(1, dt * 1.8));
+
+    for (const p of this._pectorals) {
+      const w = Math.sin(time * 0.7 + p.userData.phase);
+      p.rotation.z = p.userData.baseRotZ + w * 0.22;
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// アンモナイト / Ammonite — extinct spiral-shelled cephalopod
+// ─────────────────────────────────────────────────────────────────────────────
+
+export class Ammonite extends Creature {
+  constructor(opts = {}) {
+    const scale  = opts.scale ?? 1.0;
+    const SHELL_R = 2.6 * scale;
+    const group = new THREE.Group();
+
+    // ── Logarithmic spiral path in XY plane ───────────────────────────────
+    const TURNS = 2.6;
+    const b = Math.log(SHELL_R / (SHELL_R * 0.05)) / (TURNS * Math.PI * 2);
+    const r0 = SHELL_R * 0.05;
+    const totalAngle = TURNS * Math.PI * 2;
+    const SEG = 60;
+    const pathPoints = [];
+    for (let i = 0; i <= SEG; i++) {
+      const a = (i / SEG) * totalAngle;
+      const r = r0 * Math.exp(b * a);
+      pathPoints.push(new THREE.Vector3(Math.cos(a) * r, Math.sin(a) * r, 0));
+    }
+
+    // Build the shell as a variable-radius swept tube.
+    // makeTaperedTube linearly tapers; we approximate the spiral's growing
+    // tube by chaining short sub-curves with locally interpolated radii.
+    // (TubeGeometry is one continuous tube, but with rScale = lerp(1, rTip/rBase, t*t)
+    //  applied to each ring we get the desired growing taper.)
+    const tubeBaseR  = SHELL_R * 0.05;
+    const tubeOuterR = SHELL_R * 0.50;
+    const tubeGeo = makeTaperedTube(pathPoints, {
+      rBase: tubeBaseR,
+      rTip:  tubeOuterR,
+      segs: SEG,
+      radial: 18,
+    });
+    // Add radial rib bumps along the tube
+    {
+      const RAD = 19;
+      const p = tubeGeo.attributes.position;
+      const center = new THREE.Vector3();
+      // Reconstruct the curve for ring-center lookup
+      const curve = new THREE.CatmullRomCurve3(pathPoints, false, 'catmullrom', 0.5);
+      for (let ring = 0; ring <= SEG; ring++) {
+        const t = ring / SEG;
+        const ribFreq = 50;
+        const rib = 1 + Math.sin(t * ribFreq) * 0.07;
+        curve.getPointAt(t, center);
+        for (let r = 0; r < RAD; r++) {
+          const i = ring * RAD + r;
+          const dx = p.getX(i) - center.x;
+          const dy = p.getY(i) - center.y;
+          const dz = p.getZ(i) - center.z;
+          p.setXYZ(i, center.x + dx * rib, center.y + dy * rib, center.z + dz * rib);
+        }
+      }
+      tubeGeo.computeVertexNormals();
+    }
+
+    const shellTex = makeAmmoniteShellTexture();
+    const shellMat = new THREE.MeshPhysicalMaterial({
+      color:              0xffffff,
+      map:                shellTex,
+      roughness:          0.42,
+      metalness:          0.28,
+      clearcoat:          0.55,
+      clearcoatRoughness: 0.22,
+      emissive:           new THREE.Color(0x1a1208),
+      emissiveIntensity:  0.22,
+    });
+    const shell = new THREE.Mesh(tubeGeo, shellMat);
+    shell.castShadow = !!opts.castShadow;
+    group.add(shell);
+
+    // ── Aperture (outer rim of the spiral, where the body emerges) ────────
+    const curve = new THREE.CatmullRomCurve3(pathPoints, false, 'catmullrom', 0.5);
+    const apPt  = curve.getPointAt(1.0);
+    const apTan = curve.getTangentAt(1.0).normalize();
+    const apRad = tubeOuterR;
+
+    // Flared lip
+    {
+      const lipGeo = new THREE.TorusGeometry(apRad * 1.05, apRad * 0.10, 10, 28);
+      const lip = new THREE.Mesh(lipGeo, new THREE.MeshStandardMaterial({
+        color: 0x2b1d10, roughness: 0.55, metalness: 0.18,
+        emissive: new THREE.Color(0x180c06), emissiveIntensity: 0.30,
+      }));
+      lip.position.copy(apPt);
+      lip.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), apTan);
+      group.add(lip);
+    }
+
+    // ── Mantle (fleshy cap inside the aperture) ───────────────────────────
+    const mantleMat = new THREE.MeshPhysicalMaterial({
+      color: 0x9c5436, roughness: 0.45, metalness: 0.05,
+      clearcoat: 0.40, clearcoatRoughness: 0.32,
+      emissive: new THREE.Color(0x180a04), emissiveIntensity: 0.32,
+    });
+    {
+      const mantleGeo = new THREE.SphereGeometry(apRad * 0.95, 20, 14, 0, Math.PI * 2, 0, Math.PI * 0.55);
+      mantleGeo.rotateX(Math.PI / 2);
+      const mantle = new THREE.Mesh(mantleGeo, mantleMat);
+      mantle.position.copy(apPt).addScaledVector(apTan, apRad * 0.06);
+      mantle.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), apTan);
+      group.add(mantle);
+    }
+
+    // ── Eye on the mantle ────────────────────────────────────────────────
+    {
+      const eyeMat = new THREE.MeshPhysicalMaterial({
+        color: 0xf6e6c0, roughness: 0.20, metalness: 0.10,
+        clearcoat: 0.95, clearcoatRoughness: 0.06,
+        emissive: new THREE.Color(0xe8b46c), emissiveIntensity: 0.45,
+      });
+      const side = new THREE.Vector3(0, 0, 1).cross(apTan).normalize();
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(apRad * 0.22, 14, 10), eyeMat);
+      eye.position.copy(apPt).addScaledVector(apTan, apRad * 0.45).addScaledVector(side, apRad * 0.65);
+      group.add(eye);
+      const pup = new THREE.Mesh(
+        new THREE.SphereGeometry(apRad * 0.10, 10, 8),
+        new THREE.MeshBasicMaterial({ color: 0x000000 }),
+      );
+      pup.position.copy(eye.position).addScaledVector(side, apRad * 0.16);
+      group.add(pup);
+    }
+
+    // ── Eight octopus-like tentacles emerging from the aperture ───────────
+    const tentMat = new THREE.MeshPhysicalMaterial({
+      color: 0x9c5436, roughness: 0.55, metalness: 0.05,
+      clearcoat: 0.42, clearcoatRoughness: 0.30,
+      emissive: new THREE.Color(0x180a04), emissiveIntensity: 0.30,
+    });
+    const tentUniforms = { uTime: { value: 0 } };
+    const tentacles = [];
+    const tentCount = 8;
+    for (let i = 0; i < tentCount; i++) {
+      const tentLen = (1.4 + Math.random() * 0.7) * scale * 1.8;
+      const geo = new THREE.CylinderGeometry(0.08 * scale, 0.014 * scale, tentLen, 8, 14, true);
+      geo.translate(0, -tentLen / 2, 0);
+      const mat = tentMat.clone();
+      const phase = (i / tentCount) * Math.PI * 2 + Math.random() * 0.3;
+      const sideSign = i < tentCount / 2 ? 1 : -1;
+      mat.onBeforeCompile = (sh) => {
+        sh.uniforms.uTime = tentUniforms.uTime;
+        sh.uniforms.uPhase = { value: phase };
+        sh.uniforms.uSidedness = { value: sideSign };
+        sh.vertexShader = sh.vertexShader
+          .replace('#include <common>', `#include <common>
+            uniform float uTime;
+            uniform float uPhase;
+            uniform float uSidedness;
+          `)
+          .replace('#include <begin_vertex>', `
+            vec3 transformed = vec3(position);
+            float Llen = ${tentLen.toFixed(3)};
+            float t = clamp(-transformed.y / Llen, 0.0, 1.0);
+            float grow = pow(t, 1.2);
+            float wave  = sin(uTime * 1.4 + uPhase + t * 4.5);
+            float swirl = cos(uTime * 1.05 + uPhase * 0.7 + t * 3.0);
+            transformed.x += wave  * 0.22 * grow * uSidedness;
+            transformed.z += swirl * 0.20 * grow;
+          `);
+      };
+
+      const tent = new THREE.Mesh(geo, mat);
+      const ang = (i / tentCount) * Math.PI * 2;
+      const rim = new THREE.Vector3(
+        Math.cos(ang) * apRad * 0.70,
+        Math.sin(ang) * apRad * 0.70,
+        0,
+      );
+      const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), apTan);
+      rim.applyQuaternion(q);
+      tent.position.copy(apPt).add(rim);
+      // Point each tentacle outward through the aperture along apTan
+      tent.quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), apTan);
+      tent.rotateX((Math.random() - 0.5) * 0.5);
+      tent.rotateZ((Math.random() - 0.5) * 0.5);
+      tentacles.push(tent);
+      group.add(tent);
+    }
+
+    // ── Align the spiral so the aperture trails behind motion ─────────────
+    // Creature.orient() makes local +X = velocity. To have the tentacles
+    // stream BEHIND, rotate the entire shell so apTan aligns with -X.
+    const targetBack = new THREE.Vector3(-1, 0, 0);
+    const groupAlign = new THREE.Quaternion().setFromUnitVectors(apTan.clone(), targetBack);
+    group.children.forEach((child) => {
+      child.position.applyQuaternion(groupAlign);
+      child.quaternion.premultiply(groupAlign);
+    });
+
+    super({
+      species: 'ammonite',
+      mesh: group,
+      position: new THREE.Vector3(
+        THREE.MathUtils.randFloatSpread(GIANT_TANK.maxX * 0.6),
+        THREE.MathUtils.randFloat(-10, 24),
+        THREE.MathUtils.randFloatSpread(GIANT_TANK.maxZ * 0.6),
+      ),
+      cfg: {
+        speed: 2.6, maxAccel: 0.85, turnRate: 0.65,
+        depthMin: GIANT_TANK.floorY + 10,
+        depthMax: GIANT_TANK.maxY - 10,
+        wanderMin: 9, wanderMax: 16,
+        wallMargin: 14,
+        bounds: GIANT_TANK,
+        facesVelocity: true,
+      },
+    });
+
+    this._tentUniforms = tentUniforms;
+    this._bobPhase = Math.random() * Math.PI * 2;
+  }
+
+  onUpdate(dt, time) {
+    this._tentUniforms.uTime.value = time;
+
+    // Gentle buoyancy bob — chamber gas adjustment
+    const bob = Math.sin(time * 0.55 + this._bobPhase) * 0.12;
+    this.vel.y += bob * dt;
+
+    // Bank into turns + pitch with intent
+    const targetRoll = -this.turnSignal * 0.30;
+    this.mesh.rotation.z = THREE.MathUtils.lerp(this.mesh.rotation.z, targetRoll, Math.min(1, dt * 1.6));
+    const pitch = THREE.MathUtils.clamp(this.vel.y / Math.max(this.cfg.speed, 0.01), -0.5, 0.5);
+    this.mesh.rotation.x = THREE.MathUtils.lerp(this.mesh.rotation.x, -pitch * 0.25, Math.min(1, dt * 1.5));
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Giant scene builder — custom large environment for the ancient giants tank
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1883,6 +2902,9 @@ export function launch() {
   creatures.push(new Anomalocaris({ scale: 2.8, castShadow: !isMobile }));
   creatures.push(new Cameroceras ({ scale: 2.5, castShadow: !isMobile }));
   creatures.push(new Opabinia    ({ scale: 3.4, castShadow: !isMobile }));
+  creatures.push(new BlueWhale   ({ scale: 4.0, castShadow: !isMobile }));
+  creatures.push(new FrilledShark({ scale: 3.6, castShadow: !isMobile }));
+  creatures.push(new Ammonite    ({ scale: 5.0, castShadow: !isMobile }));
 
   for (const c of creatures) scene.add(c.mesh);
   state.creatures = creatures;
@@ -1917,7 +2939,7 @@ export function launch() {
   const audio = initAudio({ state, getCreatures });
 
   // ── Ambient auto-species follow (subtle showcase rotation) ───────────────
-  const speciesPool = ['futabasaurus', 'opabinia', 'anomalocaris', 'cameroceras'];
+  const speciesPool = ['futabasaurus', 'opabinia', 'anomalocaris', 'cameroceras', 'bluewhale', 'frilledshark', 'ammonite'];
   let ambientTimer = null;
   function startAmbientCycle() {
     stopAmbientCycle();
@@ -2042,10 +3064,13 @@ export function launch() {
 // ─────────────────────────────────────────────────────────────────────────────
 function configureSpeciesButtons() {
   const SPECIES = [
+    { id: 'bluewhale',    label: 'シロナガスクジラ' },
     { id: 'futabasaurus', label: 'フタバスズキリュウ' },
-    { id: 'opabinia',     label: 'オパビニア' },
+    { id: 'frilledshark', label: 'ラブカ' },
+    { id: 'ammonite',     label: 'アンモナイト' },
     { id: 'anomalocaris', label: 'アノマロカリス' },
     { id: 'cameroceras',  label: 'カメロケラス' },
+    { id: 'opabinia',     label: 'オパビニア' },
   ];
   const buttons = [...document.querySelectorAll('.species-btn')];
   buttons.forEach((b, i) => {
