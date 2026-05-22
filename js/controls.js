@@ -136,7 +136,7 @@ export function initControls({
       case 'opabinia':     return  9.0;
       case 'anomalocaris': return 14.0;
       case 'cameroceras':  return 16.0;
-      case 'bluewhale':    return 36.0;
+      case 'bluewhale':    return 60.0;
       case 'frilledshark': return 14.0;
       case 'ammonite':     return 13.0;
       default:             return 1.8;
@@ -150,7 +150,7 @@ export function initControls({
       case 'cameroceras':  return 60;
       case 'anomalocaris': return 50;
       case 'opabinia':     return 30;
-      case 'bluewhale':    return 95;
+      case 'bluewhale':    return 135;
       case 'frilledshark': return 42;
       case 'ammonite':     return 40;
       default:             return 5.5;
