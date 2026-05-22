@@ -27,6 +27,8 @@ export class Creature {
       wanderMin: 4,
       wanderMax: 9,
       wallMargin: 4,
+      sepRadius: 6,   // push away from same-species neighbours within this distance
+      sepStr: 1.8,    // separation force multiplier
       reactsToFood: false,
       facesVelocity: true,
       ...cfg,
@@ -106,6 +108,20 @@ export class Creature {
 
     // Wall avoidance ---------------------------------------------------
     this.avoidWalls(_a);
+
+    // Separation from same-species neighbours --------------------------
+    if (state?.creatures?.length) {
+      const sepR = this.cfg.sepRadius;
+      const sepS = this.cfg.sepStr;
+      for (const other of state.creatures) {
+        if (other === this || other.species !== this.species) continue;
+        _c.subVectors(this.pos, other.pos);
+        const d = _c.length();
+        if (d > 0.01 && d < sepR) {
+          _a.addScaledVector(_c, sepS * (1 - d / sepR) / d);
+        }
+      }
+    }
 
     // Steering (accel-limited) ----------------------------------------
     _b.subVectors(_a, this.vel);

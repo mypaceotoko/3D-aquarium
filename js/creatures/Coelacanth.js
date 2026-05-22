@@ -183,6 +183,7 @@ export class Coelacanth extends Creature {
         depthMax: TANK.floorY + 9.0,
         wanderMin: 8, wanderMax: 14,
         wallMargin: 5,
+        sepRadius: 8, sepStr: 2.0,
         reactsToFood: false,
         facesVelocity: true,
       },
