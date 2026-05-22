@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { initControls } from '../controls.js';
 import { createObservationUI } from '../interaction/observationUI.js';
 import { initAudio } from '../audio.js';
@@ -1703,68 +1704,125 @@ function makeBlueWhaleTexture() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Frilled shark procedural texture: very dark olive-brown with mottling and
-// faint longitudinal stripes; pale cream specks along the underside.
+// Frilled shark procedural texture (2048×512): countershaded olive-grey-brown.
+// Dark almost-charcoal dorsal grading to grey-brown flanks and a paler tan
+// underside, broad mottling, longitudinal wrinkle hints along the body, fine
+// micro-noise + cream specks on the belly for the "living fossil" look.
 // ─────────────────────────────────────────────────────────────────────────────
 function makeFrilledSharkTexture() {
-  const W = 1024, H = 256;
+  const W = 2048, H = 512;
   const c = document.createElement('canvas');
   c.width = W; c.height = H;
   const g = c.getContext('2d');
 
+  // Vertical gradient: dark dorsal → mid flank → paler tan belly
   const grad = g.createLinearGradient(0, 0, 0, H);
-  grad.addColorStop(0.00, '#1d160e');
-  grad.addColorStop(0.40, '#2b2117');
-  grad.addColorStop(0.75, '#3a2d1f');
-  grad.addColorStop(1.00, '#4a3a28');
+  grad.addColorStop(0.00, '#0e0a06');   // back — charcoal olive
+  grad.addColorStop(0.18, '#1a130d');
+  grad.addColorStop(0.42, '#2c2218');   // upper flank
+  grad.addColorStop(0.62, '#3a2d20');   // lower flank — warm olive-brown
+  grad.addColorStop(0.82, '#54422f');   // belly transition
+  grad.addColorStop(1.00, '#705a44');   // pale ventral (tan-grey)
   g.fillStyle = grad;
   g.fillRect(0, 0, W, H);
 
-  addNoise(g, W, H, 26);
+  // Subtle horizontal banding (broad zones)
+  for (let i = 0; i < 5; i++) {
+    const y = (i / 5) * H + Math.random() * (H / 5);
+    g.fillStyle = `rgba(0,0,0,${0.04 + Math.random() * 0.06})`;
+    g.fillRect(0, y, W, 2 + Math.random() * 6);
+  }
 
-  // Irregular dark blotches
-  for (let i = 0; i < 110; i++) {
+  // Macro mottle: large diffuse dark blotches across dorsal half
+  for (let i = 0; i < 160; i++) {
     const x = Math.random() * W;
-    const y = Math.random() * H;
-    const r = 6 + Math.random() * 30;
-    const a = 0.18 + Math.random() * 0.30;
+    const y = Math.random() * H * 0.70;   // bias up
+    const r = 12 + Math.random() * 64;
+    const a = 0.14 + Math.random() * 0.30;
     const rg = g.createRadialGradient(x, y, 0, x, y, r);
-    rg.addColorStop(0, `rgba(8, 6, 4, ${a})`);
-    rg.addColorStop(1, `rgba(8, 6, 4, 0)`);
+    rg.addColorStop(0, `rgba(5, 4, 3, ${a})`);
+    rg.addColorStop(1, `rgba(5, 4, 3, 0)`);
     g.fillStyle = rg;
     g.beginPath();
-    g.ellipse(x, y, r * (0.7 + Math.random() * 0.5), r * (0.5 + Math.random() * 0.4),
-              Math.random() * Math.PI, 0, Math.PI * 2);
+    g.ellipse(
+      x, y,
+      r * (0.7 + Math.random() * 0.6),
+      r * (0.45 + Math.random() * 0.4),
+      Math.random() * Math.PI, 0, Math.PI * 2,
+    );
     g.fill();
   }
 
-  // Faint longitudinal striping
-  g.globalAlpha = 0.10;
-  g.strokeStyle = '#0a0604';
-  for (let y = 0; y < H; y += 6) {
-    g.lineWidth = 0.6 + Math.random() * 0.6;
+  // Faint warm highlights (lighter brown patches) — adds depth
+  for (let i = 0; i < 50; i++) {
+    const x = Math.random() * W;
+    const y = H * (0.45 + Math.random() * 0.30);
+    const r = 18 + Math.random() * 50;
+    const rg = g.createRadialGradient(x, y, 0, x, y, r);
+    rg.addColorStop(0, `rgba(135, 100, 70, ${0.06 + Math.random() * 0.10})`);
+    rg.addColorStop(1, `rgba(135, 100, 70, 0)`);
+    g.fillStyle = rg;
     g.beginPath();
-    for (let x = 0; x <= W; x += 6) {
-      const yy = y + Math.sin((x + y) * 0.06) * 1.0;
-      if (x === 0) g.moveTo(x, yy);
-      else g.lineTo(x, yy);
+    g.ellipse(x, y, r, r * 0.55, Math.random() * Math.PI, 0, Math.PI * 2);
+    g.fill();
+  }
+
+  // Longitudinal wrinkle/skin lines — emphasises the eel-like body
+  g.globalAlpha = 0.13;
+  for (let pass = 0; pass < 3; pass++) {
+    const yStep = pass === 0 ? 8 : pass === 1 ? 14 : 22;
+    const wob   = pass === 0 ? 0.8 : 1.6;
+    g.strokeStyle = pass === 0 ? '#070503' : '#241a10';
+    for (let y = 4 + pass * 3; y < H; y += yStep) {
+      g.lineWidth = 0.5 + Math.random() * 1.0;
+      g.beginPath();
+      for (let x = 0; x <= W; x += 8) {
+        const yy = y + Math.sin((x + y) * (0.012 + pass * 0.004)) * wob;
+        if (x === 0) g.moveTo(x, yy);
+        else g.lineTo(x, yy);
+      }
+      g.stroke();
     }
-    g.stroke();
   }
   g.globalAlpha = 1;
 
-  // Cream specks (counter-shading along the belly)
-  for (let i = 0; i < 60; i++) {
+  // Lateral line — faint dark hint running mid-flank
+  g.globalAlpha = 0.20;
+  g.strokeStyle = '#0a0604';
+  g.lineWidth = 1.2;
+  g.beginPath();
+  for (let x = 0; x <= W; x += 12) {
+    const yy = H * 0.55 + Math.sin(x * 0.018) * 4;
+    if (x === 0) g.moveTo(x, yy);
+    else g.lineTo(x, yy);
+  }
+  g.stroke();
+  g.globalAlpha = 1;
+
+  // Fine micro-noise
+  addNoise(g, W, H, 22);
+
+  // Cream specks (counter-shading flecks along belly)
+  for (let i = 0; i < 180; i++) {
     const x = Math.random() * W;
-    const y = H * (0.7 + Math.random() * 0.3);
-    const r = 1.2 + Math.random() * 1.8;
-    g.fillStyle = `rgba(220, 200, 160, ${0.12 + Math.random() * 0.18})`;
+    const y = H * (0.72 + Math.random() * 0.28);
+    const r = 0.8 + Math.random() * 2.2;
+    g.fillStyle = `rgba(230, 210, 175, ${0.10 + Math.random() * 0.20})`;
+    g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+  }
+
+  // Tiny dark dorsal dots — denticle hints
+  for (let i = 0; i < 140; i++) {
+    const x = Math.random() * W;
+    const y = H * (0.05 + Math.random() * 0.35);
+    const r = 0.7 + Math.random() * 1.6;
+    g.fillStyle = `rgba(0, 0, 0, ${0.20 + Math.random() * 0.25})`;
     g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
   }
 
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = 4;
+  tex.anisotropy = 8;
   tex.wrapS = THREE.RepeatWrapping;
   tex.wrapT = THREE.ClampToEdgeWrapping;
   return tex;
@@ -2363,45 +2421,165 @@ export class BlueWhale extends Creature {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ラブカ / Frilled shark — "living fossil" deep-sea shark
+//
+// Faithful to the inforgraphic reference:
+//   • Eel-like elongated body with a slight head bulge and a very fine tail
+//   • SIX pairs of pleated 3D frill gills, the first forming a continuous
+//     throat collar
+//   • Trident teeth — three-cusp dental units arranged in dense rows on the
+//     gaping terminal mouth (drawn with an InstancedMesh, ~75 per row × 4 rows)
+//   • Recessed cat-eye reflective eyes (bright iris, vertical slit pupil)
+//   • Continuous dorsal/anal ribbon fins extending into the small caudal
+//   • Small pectoral and pelvic fins; full body undulates eel-style (tailW<1)
 // ─────────────────────────────────────────────────────────────────────────────
+
+// Build a single 3-cusp "trident tooth" merged geometry, oriented +Y up.
+function makeTridentToothGeometry(scale) {
+  const s = scale;
+  // Central cusp — tall, narrow
+  const central = new THREE.ConeGeometry(0.018 * s, 0.110 * s, 6);
+  central.translate(0, 0.055 * s, 0);
+
+  // Lateral cusps — shorter, splayed outward
+  const sideR = new THREE.ConeGeometry(0.011 * s, 0.068 * s, 5);
+  sideR.translate(0, 0.034 * s, 0);
+  sideR.rotateZ(-0.45);
+  sideR.translate(0.022 * s, -0.006 * s, 0);
+
+  const sideL = new THREE.ConeGeometry(0.011 * s, 0.068 * s, 5);
+  sideL.translate(0, 0.034 * s, 0);
+  sideL.rotateZ(0.45);
+  sideL.translate(-0.022 * s, -0.006 * s, 0);
+
+  // Tiny gum base — small ring to hide the seam at the body
+  const base = new THREE.CylinderGeometry(0.024 * s, 0.030 * s, 0.012 * s, 8);
+  base.translate(0, -0.006 * s, 0);
+
+  const merged = mergeGeometries([central, sideR, sideL, base], false);
+  central.dispose(); sideR.dispose(); sideL.dispose(); base.dispose();
+  return merged;
+}
+
+// Build a fully 3D pleated gill frill that wraps around the body at a given x.
+//   • Inner ring: anchored at bodyR (flush with body)
+//   • Outer ring: at frillR, with radial AND axial undulations (accordion fold)
+//   • Optional collar mode draws an even taller, smoother flare for gill #1
+function makePleatedFrillGeometry({
+  bodyR, frillR, depth, pleats, pleatAmp, axialWobble,
+  radial = 96, collar = false,
+}) {
+  const RAD = radial;
+  // Two rings → simple strip + outer pleats. We add a third ring (midpoint)
+  // for nicer shading and a softer attachment to the body.
+  const ringMid = bodyR * 0.985;
+
+  const positions = new Float32Array((RAD + 1) * 3 * 3);
+  const uvs       = new Float32Array((RAD + 1) * 3 * 2);
+  const indices   = [];
+
+  for (let s = 0; s <= RAD; s++) {
+    const t = s / RAD;
+    const a = t * Math.PI * 2;
+    const pleat = Math.sin(t * Math.PI * 2 * pleats);
+    const pleatHi = Math.cos(t * Math.PI * 2 * pleats);
+
+    // Inner ring — anchored to body
+    const ix = 0;
+    const iy = Math.cos(a) * bodyR;
+    const iz = Math.sin(a) * bodyR;
+
+    // Mid ring — smooth attachment, sits just outside body
+    const mx = -depth * 0.15;
+    const my = Math.cos(a) * ringMid * 1.04;
+    const mz = Math.sin(a) * ringMid * 1.04;
+
+    // Outer ring — pleated edge: radial bulge + axial accordion
+    const outR = frillR + pleat * pleatAmp;
+    // Collar: bottom of the throat (a ≈ -π/2 = bottom in our local frame)
+    // gets a gentle additional flare so the front gill reads as a "collar".
+    let collarBoost = 1;
+    if (collar) {
+      const ventralWeight = (1 - Math.cos(a + Math.PI / 2)) * 0.5; // 1 at bottom, 0 at top
+      collarBoost += ventralWeight * 0.28;
+    }
+    const ox = -depth - pleatHi * axialWobble - (collar ? 0.012 * Math.cos(a + Math.PI / 2) : 0);
+    const oy = Math.cos(a) * outR * collarBoost;
+    const oz = Math.sin(a) * outR * collarBoost;
+
+    const i0 = s * 3;
+    positions[(i0 + 0) * 3 + 0] = ix; positions[(i0 + 0) * 3 + 1] = iy; positions[(i0 + 0) * 3 + 2] = iz;
+    positions[(i0 + 1) * 3 + 0] = mx; positions[(i0 + 1) * 3 + 1] = my; positions[(i0 + 1) * 3 + 2] = mz;
+    positions[(i0 + 2) * 3 + 0] = ox; positions[(i0 + 2) * 3 + 1] = oy; positions[(i0 + 2) * 3 + 2] = oz;
+
+    uvs[(i0 + 0) * 2 + 0] = t; uvs[(i0 + 0) * 2 + 1] = 0.0;
+    uvs[(i0 + 1) * 2 + 0] = t; uvs[(i0 + 1) * 2 + 1] = 0.5;
+    uvs[(i0 + 2) * 2 + 0] = t; uvs[(i0 + 2) * 2 + 1] = 1.0;
+  }
+
+  // Build two quad strips (inner-mid and mid-outer) → two triangles each.
+  for (let s = 0; s < RAD; s++) {
+    const a = s * 3,       b = s * 3 + 1,     c = s * 3 + 2;
+    const a1 = (s + 1) * 3, b1 = (s + 1) * 3 + 1, c1 = (s + 1) * 3 + 2;
+    // inner-mid
+    indices.push(a, b, b1);  indices.push(a, b1, a1);
+    // mid-outer
+    indices.push(b, c, c1);  indices.push(b, c1, b1);
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geo.setAttribute('uv',       new THREE.BufferAttribute(uvs, 2));
+  geo.setIndex(indices);
+  geo.computeVertexNormals();
+  return geo;
+}
+
 
 export class FrilledShark extends Creature {
   constructor(opts = {}) {
     const scale = opts.scale ?? 1.0;
-    const L     = 8.0 * scale;
+    const L     = 8.4 * scale;     // slightly longer to read as a true 2m-class eel-shark
     const group = new THREE.Group();
     const uniforms = makeBendUniforms({
       length: L,
-      amp: 0.32, freq: 0.55,
-      tailW: 0.75,        // < 1 → wave spreads across the entire body (eel-like)
-      curl: 0.50,
+      amp: 0.30, freq: 0.55,
+      tailW: 0.65,                  // < 1 → wave spans the entire eel-like body
+      curl: 0.55,
     });
 
-    // ── Body lathe — slender, nearly uniform tube ─────────────────────────
+    // ── Body lathe — eel profile: bulged head, mid-body girth, fine tail tip ─
     const bodyProfile = [
-      new THREE.Vector2(0.008, +L * 0.502),
-      new THREE.Vector2(0.060, +L * 0.470),
-      new THREE.Vector2(0.130, +L * 0.380),
-      new THREE.Vector2(0.190, +L * 0.260),
-      new THREE.Vector2(0.225, +L * 0.120),
-      new THREE.Vector2(0.235, -L * 0.030),
-      new THREE.Vector2(0.232, -L * 0.140),
-      new THREE.Vector2(0.225, -L * 0.260),
-      new THREE.Vector2(0.220, -L * 0.355),
-      new THREE.Vector2(0.215, -L * 0.420),
-      new THREE.Vector2(0.190, -L * 0.460),
-      new THREE.Vector2(0.150, -L * 0.485),
-      new THREE.Vector2(0.090, -L * 0.498),
-      new THREE.Vector2(0.012, -L * 0.502),
+      new THREE.Vector2(0.006, +L * 0.503),
+      new THREE.Vector2(0.040, +L * 0.490),
+      new THREE.Vector2(0.090, +L * 0.470),
+      new THREE.Vector2(0.150, +L * 0.440),   // head front (jaw region)
+      new THREE.Vector2(0.205, +L * 0.395),   // head bulge
+      new THREE.Vector2(0.234, +L * 0.340),
+      new THREE.Vector2(0.242, +L * 0.260),
+      new THREE.Vector2(0.246, +L * 0.160),   // peak girth (just behind gills)
+      new THREE.Vector2(0.244, +L * 0.060),
+      new THREE.Vector2(0.238, -L * 0.050),
+      new THREE.Vector2(0.230, -L * 0.160),
+      new THREE.Vector2(0.219, -L * 0.260),
+      new THREE.Vector2(0.205, -L * 0.340),
+      new THREE.Vector2(0.182, -L * 0.405),
+      new THREE.Vector2(0.150, -L * 0.450),
+      new THREE.Vector2(0.110, -L * 0.478),
+      new THREE.Vector2(0.065, -L * 0.495),
+      new THREE.Vector2(0.022, -L * 0.502),
+      new THREE.Vector2(0.004, -L * 0.505),
     ];
-    const bodyGeo = new THREE.LatheGeometry(bodyProfile, 22);
+    const bodyGeo = new THREE.LatheGeometry(bodyProfile, 28);
     bodyGeo.rotateZ(-Math.PI / 2);
-    // Slight lateral flattening — eel cross-section is taller than wide
+    // Eel cross-section: taller than wide (subtle lateral flattening)
     {
       const p = bodyGeo.attributes.position;
       for (let i = 0; i < p.count; i++) {
-        p.setY(i, p.getY(i) * 1.16);
-        p.setZ(i, p.getZ(i) * 0.86);
+        const x = p.getX(i);
+        // Slight ventral droop near the gill region to suggest the throat sag
+        const ventral = THREE.MathUtils.smoothstep(x, -L * 0.05, +L * 0.30) - THREE.MathUtils.smoothstep(x, +L * 0.30, +L * 0.42);
+        p.setY(i, p.getY(i) * 1.14 - ventral * 0.018 * scale);
+        p.setZ(i, p.getZ(i) * 0.88);
       }
       bodyGeo.computeVertexNormals();
     }
@@ -2410,27 +2588,21 @@ export class FrilledShark extends Creature {
     const bodyMat = injectBend(new THREE.MeshPhysicalMaterial({
       color:              0xffffff,
       map:                bodyTex,
-      roughness:          0.62,
-      metalness:          0.12,
-      clearcoat:          0.30,
-      clearcoatRoughness: 0.45,
-      emissive:           new THREE.Color(0x080604),
-      emissiveIntensity:  0.30,
+      roughness:          0.66,
+      metalness:          0.10,
+      clearcoat:          0.45,
+      clearcoatRoughness: 0.42,
+      sheen:              0.5,
+      sheenRoughness:     0.55,
+      sheenColor:         new THREE.Color(0x4a3a25),
+      emissive:           new THREE.Color(0x0a0805),
+      emissiveIntensity:  0.28,
     }), uniforms);
     const body = new THREE.Mesh(bodyGeo, bodyMat);
     body.castShadow = !!opts.castShadow;
     group.add(body);
 
-    // ── Six pairs of frilly gill rings around the front body ─────────────
-    const gillMat = injectBend(new THREE.MeshStandardMaterial({
-      color: 0x9a8266, roughness: 0.45, metalness: 0.12,
-      side: THREE.DoubleSide,
-      emissive: new THREE.Color(0x1a1208), emissiveIntensity: 0.40,
-    }), uniforms);
-    const darkGillMat = injectBend(new THREE.MeshStandardMaterial({
-      color: 0x1a1006, roughness: 0.7, side: THREE.DoubleSide,
-    }), uniforms);
-    // Approximate the body radius at a given x by sampling the lathe profile
+    // Helper: sample lathe radius along the body's local +X
     const sampleR = (x) => {
       for (let i = 0; i < bodyProfile.length - 1; i++) {
         const a = bodyProfile[i], b = bodyProfile[i + 1];
@@ -2442,161 +2614,405 @@ export class FrilledShark extends Creature {
       }
       return 0.10;
     };
-    for (let i = 0; i < 6; i++) {
-      const t = i / 5;
-      const x = THREE.MathUtils.lerp(+L * 0.40, +L * 0.18, t);
-      const bodyR = sampleR(x) + 0.020 * scale;
-      const frillR = bodyR + 0.055 * scale;
 
-      const shp = new THREE.Shape();
-      const segs = 40;
-      for (let s = 0; s <= segs; s++) {
-        const a = (s / segs) * Math.PI * 2;
-        const ruffle = 1 + Math.sin(a * 12) * 0.05;
-        const r = frillR * ruffle;
-        if (s === 0) shp.moveTo(r * Math.cos(a), r * Math.sin(a));
-        else         shp.lineTo(r * Math.cos(a), r * Math.sin(a));
-      }
-      const hole = new THREE.Path();
-      for (let s = 0; s <= segs; s++) {
-        const a = (s / segs) * Math.PI * 2;
-        const r = bodyR * 0.92;
-        if (s === 0) hole.moveTo(r * Math.cos(a), r * Math.sin(a));
-        else         hole.lineTo(r * Math.cos(a), r * Math.sin(a));
-      }
-      shp.holes.push(hole);
-      const ringGeo = new THREE.ShapeGeometry(shp, 1);
-      ringGeo.rotateY(Math.PI / 2);
-      ringGeo.translate(x, 0, 0);
-      group.add(new THREE.Mesh(ringGeo, gillMat));
+    // ── SIX PAIRS OF PLEATED 3D FRILL GILLS ──────────────────────────────
+    // Real ラブカ frills: brown-grey accordion folds, the first pair forms a
+    // continuous collar across the throat; each successive pair is smaller.
+    const frillMat = injectBend(new THREE.MeshPhysicalMaterial({
+      color:              0xb59679,
+      roughness:          0.52,
+      metalness:          0.06,
+      clearcoat:          0.20,
+      clearcoatRoughness: 0.55,
+      side:               THREE.DoubleSide,
+      emissive:           new THREE.Color(0x251a10),
+      emissiveIntensity:  0.55,
+      sheen:              0.6,
+      sheenColor:         new THREE.Color(0xbfa386),
+      sheenRoughness:     0.4,
+    }), uniforms);
+    const frillEdgeMat = injectBend(new THREE.MeshStandardMaterial({
+      color: 0x4a3826, roughness: 0.7, side: THREE.DoubleSide,
+      emissive: new THREE.Color(0x120a06), emissiveIntensity: 0.45,
+    }), uniforms);
+    const darkGillMat = injectBend(new THREE.MeshStandardMaterial({
+      color: 0x0a0604, roughness: 0.9, side: THREE.DoubleSide,
+    }), uniforms);
 
-      // Dark slit just behind each frill
+    const gills = [];
+    const NUM_GILLS = 6;
+    const gillFrontX = +L * 0.34;
+    const gillBackX  = +L * 0.10;
+    for (let i = 0; i < NUM_GILLS; i++) {
+      const t = i / (NUM_GILLS - 1);
+      const x = THREE.MathUtils.lerp(gillFrontX, gillBackX, t);
+      const bR = sampleR(x);
+      // First (front) gill: largest, taller pleats, "collar" mode
+      // Each subsequent gill is smaller and closer-pleated
+      const sizeScale = THREE.MathUtils.lerp(1.0, 0.78, t);
+      const frillR    = bR + (0.085 * scale) * sizeScale;
+      const depth     = (0.055 * scale) * sizeScale;
+      const pleats    = 22 - i * 1;            // 22, 21, 20, 19, 18, 17
+      const pleatAmp  = (0.030 * scale) * sizeScale;
+      const axialWob  = (0.020 * scale) * sizeScale;
+
+      const frillGeo = makePleatedFrillGeometry({
+        bodyR: bR * 1.005,
+        frillR,
+        depth,
+        pleats,
+        pleatAmp,
+        axialWobble: axialWob,
+        radial: 96,
+        collar: i === 0,
+      });
+      frillGeo.translate(x, 0, 0);
+      const frill = new THREE.Mesh(frillGeo, frillMat);
+      group.add(frill);
+      gills.push(frill);
+
+      // Darker edge ring at the very tip — accentuates the pleated rim
+      const edgeGeo = makePleatedFrillGeometry({
+        bodyR: frillR * 0.94,
+        frillR: frillR * 1.04,
+        depth: depth * 1.18,
+        pleats,
+        pleatAmp: pleatAmp * 1.25,
+        axialWobble: axialWob * 1.25,
+        radial: 96,
+        collar: i === 0,
+      });
+      edgeGeo.translate(x - depth * 0.02, 0, 0);
+      group.add(new THREE.Mesh(edgeGeo, frillEdgeMat));
+
+      // Dark slit recessed behind the frill (the actual gill opening)
       const slit = new THREE.Mesh(
-        new THREE.TorusGeometry(bodyR * 0.96, 0.014 * scale, 6, 30),
+        new THREE.TorusGeometry(bR * 0.98, 0.012 * scale, 8, 56),
         darkGillMat,
       );
       slit.rotation.y = Math.PI / 2;
-      slit.position.set(x - 0.018 * scale, 0, 0);
+      slit.position.set(x - depth * 0.85, 0, 0);
       group.add(slit);
+
+      // Sub-frill hanging tabs (mini pleated flaps below each gill ring)
+      if (i < 4) {  // only front gills get visible droopers
+        const NUM_TABS = 8;
+        const tabMat = frillEdgeMat;
+        for (let k = 0; k < NUM_TABS; k++) {
+          const aBase = THREE.MathUtils.lerp(-Math.PI * 0.85, -Math.PI * 0.15, k / (NUM_TABS - 1));
+          const tabShape = new THREE.Shape();
+          const tw = 0.025 * scale * sizeScale;
+          const th = 0.055 * scale * sizeScale;
+          tabShape.moveTo(-tw, 0);
+          tabShape.lineTo(tw, 0);
+          tabShape.quadraticCurveTo(tw * 0.7, -th, 0, -th);
+          tabShape.quadraticCurveTo(-tw * 0.7, -th, -tw, 0);
+          const tabGeo = new THREE.ShapeGeometry(tabShape, 6);
+          tabGeo.rotateX(-Math.PI / 2);
+          tabGeo.rotateY(Math.PI / 2);
+          const ry = Math.cos(aBase) * (frillR * 1.02);
+          const rz = Math.sin(aBase) * (frillR * 1.02);
+          tabGeo.translate(x - depth * 0.6, ry, rz);
+          group.add(new THREE.Mesh(tabGeo, tabMat));
+        }
+      }
     }
 
-    // ── Continuous dorsal+caudal ribbon along the back third ──────────────
+    // ── Continuous dorsal+caudal ribbon along the back third (slight thick) ─
     const ribbonMat = injectBend(new THREE.MeshStandardMaterial({
-      color: 0x2c2218, roughness: 0.6, metalness: 0.06,
+      color: 0x241a10, roughness: 0.65, metalness: 0.04,
       side: THREE.DoubleSide,
-      emissive: new THREE.Color(0x0a0604), emissiveIntensity: 0.30,
+      emissive: new THREE.Color(0x0a0604), emissiveIntensity: 0.35,
     }), uniforms);
     {
       const s = new THREE.Shape();
-      const x0 = +L * 0.05, x1 = -L * 0.50;
-      const segs = 28;
+      const x0 = +L * 0.06, x1 = -L * 0.50;
+      const segs = 34;
       s.moveTo(x0, 0);
       for (let i = 1; i <= segs; i++) {
         const t = i / segs;
         const x = THREE.MathUtils.lerp(x0, x1, t);
-        const peak = Math.pow(t, 1.7);
-        s.lineTo(x, (0.04 + 0.42 * peak) * scale);
+        const peak = Math.pow(t, 1.7) * (1 - 0.18 * Math.sin(t * Math.PI * 3));
+        s.lineTo(x, (0.05 + 0.50 * peak) * scale);
       }
       s.lineTo(x1, 0);
       for (let i = segs; i >= 0; i--) {
         const t = i / segs;
         const x = THREE.MathUtils.lerp(x0, x1, t);
-        s.lineTo(x, -0.02 * scale);
+        s.lineTo(x, -0.018 * scale);
       }
-      group.add(new THREE.Mesh(new THREE.ShapeGeometry(s, 2), ribbonMat));
+      const dorsalGeo = new THREE.ExtrudeGeometry(s, {
+        depth: 0.024 * scale, bevelEnabled: true,
+        bevelThickness: 0.006 * scale, bevelSize: 0.006 * scale,
+        bevelSegments: 1, steps: 1,
+      });
+      dorsalGeo.translate(0, 0, -0.012 * scale);
+      group.add(new THREE.Mesh(dorsalGeo, ribbonMat));
     }
+    // Anal ribbon — longer and slightly taller than the original
     {
       const s = new THREE.Shape();
-      const x0 = -L * 0.05, x1 = -L * 0.49;
-      const segs = 22;
+      const x0 = -L * 0.02, x1 = -L * 0.49;
+      const segs = 30;
       s.moveTo(x0, 0);
       for (let i = 1; i <= segs; i++) {
         const t = i / segs;
         const x = THREE.MathUtils.lerp(x0, x1, t);
-        const peak = Math.pow(t, 1.6);
-        s.lineTo(x, -(0.03 + 0.32 * peak) * scale);
+        const peak = Math.pow(t, 1.55) * (1 - 0.15 * Math.sin(t * Math.PI * 4));
+        s.lineTo(x, -(0.04 + 0.40 * peak) * scale);
       }
       s.lineTo(x1, 0);
       for (let i = segs; i >= 0; i--) {
         const t = i / segs;
         const x = THREE.MathUtils.lerp(x0, x1, t);
-        s.lineTo(x, 0.02 * scale);
+        s.lineTo(x, 0.018 * scale);
       }
-      group.add(new THREE.Mesh(new THREE.ShapeGeometry(s, 2), ribbonMat));
+      const analGeo = new THREE.ExtrudeGeometry(s, {
+        depth: 0.022 * scale, bevelEnabled: true,
+        bevelThickness: 0.005 * scale, bevelSize: 0.005 * scale,
+        bevelSegments: 1, steps: 1,
+      });
+      analGeo.translate(0, 0, -0.011 * scale);
+      group.add(new THREE.Mesh(analGeo, ribbonMat));
     }
 
-    // ── Small pectoral fins ───────────────────────────────────────────────
-    const pecMat = injectBend(new THREE.MeshStandardMaterial({
-      color: 0x3a2e20, roughness: 0.6, side: THREE.DoubleSide,
-      emissive: new THREE.Color(0x0a0604), emissiveIntensity: 0.25,
+    // ── Caudal flag — the small terminal lobe at the tail tip ────────────
+    {
+      const s = new THREE.Shape();
+      s.moveTo(-L * 0.495,  0);
+      s.lineTo(-L * 0.495,  0.32 * scale);
+      s.quadraticCurveTo(-L * 0.505, 0.18 * scale, -L * 0.508, 0);
+      s.quadraticCurveTo(-L * 0.505, -0.10 * scale, -L * 0.495, -0.12 * scale);
+      const tailGeo = new THREE.ExtrudeGeometry(s, {
+        depth: 0.022 * scale, bevelEnabled: true,
+        bevelThickness: 0.005 * scale, bevelSize: 0.005 * scale,
+        bevelSegments: 1, steps: 1,
+      });
+      tailGeo.translate(0, 0, -0.011 * scale);
+      group.add(new THREE.Mesh(tailGeo, ribbonMat));
+    }
+
+    // ── Pectoral fins — leaf-shaped, extruded for real thickness ─────────
+    const finMat = injectBend(new THREE.MeshPhysicalMaterial({
+      color: 0x3a2c1e, roughness: 0.62, metalness: 0.05,
+      clearcoat: 0.30, clearcoatRoughness: 0.4,
+      side: THREE.DoubleSide,
+      emissive: new THREE.Color(0x0a0604), emissiveIntensity: 0.28,
     }), uniforms);
     const pectorals = [];
-    for (const side of [-1, 1]) {
+    {
       const sp = new THREE.Shape();
-      sp.moveTo(0.10, 0);
-      sp.quadraticCurveTo(-0.05, 0.04, -0.35, 0.04);
-      sp.quadraticCurveTo(-0.55, 0, -0.30, -0.05);
-      sp.quadraticCurveTo(-0.05, -0.04, 0.10, 0);
-      const pgeo = new THREE.ShapeGeometry(sp, 4);
-      pgeo.scale(scale * 1.2, scale * 1.2, scale * 1.2);
-      pgeo.translate(+L * 0.13, 0, 0);
-      const pec = new THREE.Mesh(pgeo, pecMat);
-      pec.position.set(0, -0.12 * scale, 0.22 * scale * side);
-      pec.rotation.set(side > 0 ? -1.05 : 1.05, side > 0 ? -0.4 : 0.4, 0);
-      pec.userData.baseRotZ = pec.rotation.z;
-      pec.userData.phase = side * 0.9;
-      pectorals.push(pec);
-      group.add(pec);
+      sp.moveTo(0.12, 0.0);
+      sp.quadraticCurveTo(0.04,  0.08, -0.18, 0.085);
+      sp.quadraticCurveTo(-0.40, 0.04, -0.50, -0.02);
+      sp.quadraticCurveTo(-0.40, -0.07, -0.18, -0.06);
+      sp.quadraticCurveTo(-0.02, -0.04, 0.12, 0.0);
+      const pgeoBase = new THREE.ExtrudeGeometry(sp, {
+        depth: 0.018, bevelEnabled: true,
+        bevelThickness: 0.006, bevelSize: 0.006, bevelSegments: 1, steps: 1,
+      });
+      pgeoBase.scale(scale * 1.3, scale * 1.3, scale * 1.3);
+      pgeoBase.translate(0, 0, -0.012 * scale);
+      for (const side of [-1, 1]) {
+        const pgeo = pgeoBase.clone();
+        const pec = new THREE.Mesh(pgeo, finMat);
+        pec.position.set(+L * 0.04, -0.16 * scale, 0.20 * scale * side);
+        pec.rotation.set(side > 0 ? -1.10 : 1.10, side > 0 ? -0.45 : 0.45, 0);
+        pec.userData.baseRotZ = pec.rotation.z;
+        pec.userData.phase = side * 0.9;
+        pectorals.push(pec);
+        group.add(pec);
+      }
+      pgeoBase.dispose();
     }
 
-    // ── Cavity for the gaping terminal mouth ──────────────────────────────
-    const mouthGeo = new THREE.SphereGeometry(0.18 * scale, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.55);
-    mouthGeo.rotateZ(Math.PI / 2);
-    mouthGeo.scale(1.6, 0.7, 1.0);
-    mouthGeo.translate(+L * 0.46, -0.02, 0);
-    group.add(new THREE.Mesh(mouthGeo, new THREE.MeshStandardMaterial({
-      color: 0x080404, roughness: 0.9, side: THREE.BackSide,
-      emissive: new THREE.Color(0x100806), emissiveIntensity: 0.12,
-    })));
+    // ── Pelvic fins — small, mid-body ventral pair ───────────────────────
+    {
+      const sp = new THREE.Shape();
+      sp.moveTo(0.04, 0);
+      sp.quadraticCurveTo(-0.02, 0.05, -0.22, 0.04);
+      sp.quadraticCurveTo(-0.30, 0, -0.22, -0.04);
+      sp.quadraticCurveTo(-0.02, -0.05, 0.04, 0);
+      const pelGeoBase = new THREE.ExtrudeGeometry(sp, {
+        depth: 0.014, bevelEnabled: true,
+        bevelThickness: 0.005, bevelSize: 0.005, bevelSegments: 1, steps: 1,
+      });
+      pelGeoBase.scale(scale, scale, scale);
+      pelGeoBase.translate(0, 0, -0.009 * scale);
+      for (const side of [-1, 1]) {
+        const pgeo = pelGeoBase.clone();
+        const pel = new THREE.Mesh(pgeo, finMat);
+        pel.position.set(-L * 0.12, -0.18 * scale, 0.16 * scale * side);
+        pel.rotation.set(side > 0 ? -1.20 : 1.20, side > 0 ? -0.30 : 0.30, 0);
+        group.add(pel);
+      }
+      pelGeoBase.dispose();
+    }
 
-    // ── Trident teeth (two rows along the jaw) ────────────────────────────
-    const toothMat = new THREE.MeshPhysicalMaterial({
-      color: 0xf2eadc, roughness: 0.25, metalness: 0.12,
-      clearcoat: 0.95, clearcoatRoughness: 0.05,
-      emissive: new THREE.Color(0xaaa080), emissiveIntensity: 0.18,
+    // ── Mouth: cavity + jawline + dark interior ──────────────────────────
+    // The mouth sits at the very tip (terminal mouth), with a clear gape.
+    const mouthInteriorMat = new THREE.MeshStandardMaterial({
+      color: 0x080404, roughness: 0.95, side: THREE.BackSide,
+      emissive: new THREE.Color(0x140a06), emissiveIntensity: 0.18,
     });
-    const toothGeo = new THREE.ConeGeometry(0.018 * scale, 0.08 * scale, 4);
-    toothGeo.translate(0, -0.04 * scale, 0);
-    for (let i = 0; i < 34; i++) {
-      const t = i / 33;
-      const ang = THREE.MathUtils.lerp(-1.15, 1.15, t);
-      const r = 0.135 * scale;
-      const upper = new THREE.Mesh(toothGeo, toothMat);
-      upper.position.set(+L * 0.44, 0.025 * scale, Math.sin(ang) * r);
-      upper.rotation.x = Math.cos(ang) * 0.6;
-      upper.rotation.z = -0.20;
-      group.add(upper);
-      const lower = new THREE.Mesh(toothGeo, toothMat);
-      lower.position.set(+L * 0.44, -0.07 * scale, Math.sin(ang) * r);
-      lower.rotation.x = Math.cos(ang) * 0.6;
-      lower.rotation.z = Math.PI + 0.20;
-      group.add(lower);
+    {
+      const mouthGeo = new THREE.SphereGeometry(0.22 * scale, 18, 12, 0, Math.PI * 2, 0, Math.PI * 0.58);
+      mouthGeo.rotateZ(Math.PI / 2);
+      mouthGeo.scale(1.85, 0.78, 1.0);
+      mouthGeo.translate(+L * 0.460, -0.018, 0);
+      group.add(new THREE.Mesh(mouthGeo, mouthInteriorMat));
+    }
+    // Tongue mound (visible pink-grey hump)
+    {
+      const tongueGeo = new THREE.SphereGeometry(0.10 * scale, 14, 10);
+      tongueGeo.scale(2.4, 0.45, 1.4);
+      tongueGeo.translate(+L * 0.43, -0.075 * scale, 0);
+      group.add(new THREE.Mesh(tongueGeo, new THREE.MeshStandardMaterial({
+        color: 0x4a2820, roughness: 0.6,
+        emissive: new THREE.Color(0x180c08), emissiveIntensity: 0.30,
+      })));
+    }
+    // Upper/lower jaw ridges — thin tube along the gape
+    {
+      const jawCurveTop = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(+L * 0.498,  0.000,  0.005),
+        new THREE.Vector3(+L * 0.485,  0.022,  0.080 * scale),
+        new THREE.Vector3(+L * 0.460,  0.040,  0.142 * scale),
+        new THREE.Vector3(+L * 0.418,  0.052,  0.155 * scale),
+      ]);
+      const jawCurveTopL = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(+L * 0.498,  0.000, -0.005),
+        new THREE.Vector3(+L * 0.485,  0.022, -0.080 * scale),
+        new THREE.Vector3(+L * 0.460,  0.040, -0.142 * scale),
+        new THREE.Vector3(+L * 0.418,  0.052, -0.155 * scale),
+      ]);
+      const jawMat = new THREE.MeshStandardMaterial({
+        color: 0x1a120a, roughness: 0.72, metalness: 0.12,
+        emissive: new THREE.Color(0x080604), emissiveIntensity: 0.25,
+      });
+      group.add(new THREE.Mesh(new THREE.TubeGeometry(jawCurveTop,  32, 0.014 * scale, 6, false), jawMat));
+      group.add(new THREE.Mesh(new THREE.TubeGeometry(jawCurveTopL, 32, 0.014 * scale, 6, false), jawMat));
+      const jawCurveBotR = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(+L * 0.498, -0.000,  0.005),
+        new THREE.Vector3(+L * 0.480, -0.030,  0.080 * scale),
+        new THREE.Vector3(+L * 0.455, -0.062,  0.135 * scale),
+        new THREE.Vector3(+L * 0.418, -0.082,  0.150 * scale),
+      ]);
+      const jawCurveBotL = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(+L * 0.498, -0.000, -0.005),
+        new THREE.Vector3(+L * 0.480, -0.030, -0.080 * scale),
+        new THREE.Vector3(+L * 0.455, -0.062, -0.135 * scale),
+        new THREE.Vector3(+L * 0.418, -0.082, -0.150 * scale),
+      ]);
+      group.add(new THREE.Mesh(new THREE.TubeGeometry(jawCurveBotR, 32, 0.014 * scale, 6, false), jawMat));
+      group.add(new THREE.Mesh(new THREE.TubeGeometry(jawCurveBotL, 32, 0.014 * scale, 6, false), jawMat));
     }
 
-    // ── Eyes ──────────────────────────────────────────────────────────────
-    const eyeMat = new THREE.MeshPhysicalMaterial({
-      color: 0x141008, roughness: 0.20, metalness: 0.6,
-      clearcoat: 0.85, clearcoatRoughness: 0.08,
-      emissive: new THREE.Color(0x665522), emissiveIntensity: 0.45,
+    // ── TRIDENT TEETH — InstancedMesh × 4 jaw rows ───────────────────────
+    // Real frilled sharks carry ~300 trident teeth in many rows. We model 4
+    // visible rows (upper outer + inner, lower outer + inner) at ~38 teeth
+    // each → 152 trident units, each a 3-cusp merged geometry. With
+    // InstancedMesh this is 4 draw calls total.
+    const toothMat = new THREE.MeshPhysicalMaterial({
+      color: 0xf5edd8, roughness: 0.22, metalness: 0.18,
+      clearcoat: 0.95, clearcoatRoughness: 0.05,
+      emissive: new THREE.Color(0xbfa680), emissiveIntensity: 0.22,
+    });
+    const tridentGeo = makeTridentToothGeometry(scale);
+
+    // Each row sweeps a U-shaped curve along the upper or lower jaw, with
+    // teeth pitched outward by their angular position along the curve.
+    const placeRow = ({ count, jawY, rowZScale, rowXOffset, sizeMul, flip = false }) => {
+      const inst = new THREE.InstancedMesh(tridentGeo, toothMat, count);
+      inst.castShadow = false;
+      const m = new THREE.Matrix4();
+      const q = new THREE.Quaternion();
+      const tEuler = new THREE.Euler();
+      const tPos = new THREE.Vector3();
+      const tScale = new THREE.Vector3();
+      for (let i = 0; i < count; i++) {
+        const t = i / (count - 1);
+        const ang = THREE.MathUtils.lerp(-1.18, 1.18, t);
+        const r = 0.142 * scale * rowZScale;
+        const x = +L * 0.430 + Math.cos(ang) * 0.030 * scale + rowXOffset;
+        const z = Math.sin(ang) * r;
+        const y = jawY + (flip ? -1 : 1) * (0.005 * scale) * (Math.abs(ang) - 0.8);
+        tPos.set(x, y, z);
+        // Tooth points "outward" — into the jaw cavity (upper teeth point
+        // down, lower teeth point up) and slightly forward.
+        const yaw = -ang * 0.55;
+        const pitch = flip ? Math.PI + 0.18 : -0.18;
+        const roll  = Math.cos(ang) * (flip ? 0.5 : -0.5);
+        tEuler.set(pitch, yaw, roll, 'YXZ');
+        q.setFromEuler(tEuler);
+        const sMul = sizeMul * (1.0 - 0.15 * Math.abs(ang));
+        tScale.set(sMul, sMul, sMul);
+        m.compose(tPos, q, tScale);
+        inst.setMatrixAt(i, m);
+      }
+      inst.instanceMatrix.needsUpdate = true;
+      return inst;
+    };
+    // Upper jaw — two rows (outer and inner)
+    group.add(placeRow({ count: 38, jawY:  0.020 * scale, rowZScale: 1.00, rowXOffset:  0.000 * scale, sizeMul: 1.00, flip: false }));
+    group.add(placeRow({ count: 36, jawY:  0.010 * scale, rowZScale: 0.86, rowXOffset: -0.022 * scale, sizeMul: 0.78, flip: false }));
+    // Lower jaw — two rows
+    group.add(placeRow({ count: 38, jawY: -0.070 * scale, rowZScale: 0.96, rowXOffset:  0.000 * scale, sizeMul: 1.00, flip: true  }));
+    group.add(placeRow({ count: 36, jawY: -0.060 * scale, rowZScale: 0.82, rowXOffset: -0.022 * scale, sizeMul: 0.78, flip: true  }));
+
+    // ── Eyes — small, recessed, bright reflective cat-eye iris ───────────
+    // Layered look: dark socket sphere → reflective greenish iris disk →
+    // narrow vertical slit pupil → bright catchlight.
+    const socketMat = new THREE.MeshStandardMaterial({
+      color: 0x0a0604, roughness: 0.9, metalness: 0.0,
+    });
+    const irisMat = new THREE.MeshPhysicalMaterial({
+      color: 0xb8aa2e, roughness: 0.18, metalness: 0.70,
+      clearcoat: 1.0, clearcoatRoughness: 0.05,
+      emissive: new THREE.Color(0x8a7820), emissiveIntensity: 0.85,
     });
     const pupilMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+    const catchMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+
     for (const side of [-1, 1]) {
-      const e = new THREE.Mesh(new THREE.SphereGeometry(0.07 * scale, 12, 8), eyeMat);
-      e.position.set(+L * 0.405, 0.085 * scale, 0.135 * scale * side);
-      group.add(e);
-      const p = new THREE.Mesh(new THREE.SphereGeometry(0.025 * scale, 8, 6), pupilMat);
-      p.position.set(+L * 0.420, 0.088 * scale, 0.155 * scale * side);
-      group.add(p);
+      const socket = new THREE.Mesh(
+        new THREE.SphereGeometry(0.075 * scale, 14, 10),
+        socketMat,
+      );
+      socket.position.set(+L * 0.395, 0.085 * scale, 0.142 * scale * side);
+      group.add(socket);
+
+      // Iris — a flat-ish ellipsoid sitting on top of the socket
+      const iris = new THREE.Mesh(
+        new THREE.SphereGeometry(0.052 * scale, 14, 10),
+        irisMat,
+      );
+      iris.position.set(+L * 0.408, 0.092 * scale, 0.160 * scale * side);
+      iris.scale.set(1.0, 1.0, 0.45);
+      iris.rotation.y = side * 0.55;
+      group.add(iris);
+
+      // Vertical slit pupil (cat-eye)
+      const pupilGeo = new THREE.BoxGeometry(0.012 * scale, 0.046 * scale, 0.012 * scale);
+      const pupil = new THREE.Mesh(pupilGeo, pupilMat);
+      pupil.position.set(+L * 0.414, 0.092 * scale, 0.171 * scale * side);
+      pupil.rotation.y = side * 0.55;
+      group.add(pupil);
+
+      // Catchlight — tiny white highlight, off-center
+      const catch_ = new THREE.Mesh(new THREE.SphereGeometry(0.008 * scale, 6, 6), catchMat);
+      catch_.position.set(+L * 0.418, 0.108 * scale, 0.175 * scale * side);
+      group.add(catch_);
+    }
+
+    // ── Nostril dots (tiny) ──────────────────────────────────────────────
+    for (const side of [-1, 1]) {
+      const n = new THREE.Mesh(
+        new THREE.SphereGeometry(0.010 * scale, 6, 6),
+        new THREE.MeshStandardMaterial({ color: 0x050302, roughness: 0.9 }),
+      );
+      n.position.set(+L * 0.470, 0.055 * scale, 0.075 * scale * side);
+      group.add(n);
     }
 
     super({
@@ -2620,6 +3036,7 @@ export class FrilledShark extends Creature {
 
     this._uniforms = uniforms;
     this._pectorals = pectorals;
+    this._gills = gills;
     this._pitchTarget = 0;
   }
 
@@ -2639,7 +3056,7 @@ export class FrilledShark extends Creature {
     this._uniforms.uPitch.value = this._pitchTarget;
 
     this._uniforms.uFreq.value = 0.45 + 0.40 * this.speedNorm;
-    this._uniforms.uAmp.value  = 0.28 + 0.10 * this.speedNorm;
+    this._uniforms.uAmp.value  = 0.26 + 0.10 * this.speedNorm;
 
     const rollTarget = -this.turnSignal * 0.20;
     this.mesh.rotation.x = THREE.MathUtils.lerp(this.mesh.rotation.x, rollTarget, Math.min(1, dt * 2.0));
@@ -2649,6 +3066,10 @@ export class FrilledShark extends Creature {
       const w = Math.sin(time * 0.7 + p.userData.phase);
       p.rotation.z = p.userData.baseRotZ + w * 0.22;
     }
+
+    // Subtle gill "breathing" — gentle radial pulse synced to swim rhythm
+    const breathe = 1 + Math.sin(time * 1.4) * 0.015;
+    for (const g of this._gills) g.scale.set(1, breathe, breathe);
   }
 }
 
