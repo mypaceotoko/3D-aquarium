@@ -658,7 +658,7 @@ export class Futabasaurus extends Creature {
     super({
       species: 'futabasaurus',
       mesh: group,
-      position: new THREE.Vector3(
+      position: opts.position ?? new THREE.Vector3(
         THREE.MathUtils.randFloatSpread(GIANT_TANK.maxX * 0.6),
         THREE.MathUtils.randFloat(-8, 22),
         THREE.MathUtils.randFloatSpread(GIANT_TANK.maxZ * 0.6),
@@ -669,6 +669,7 @@ export class Futabasaurus extends Creature {
         depthMax: GIANT_TANK.maxY - 5,
         wanderMin: 12, wanderMax: 22,
         wallMargin: 18,
+        sepRadius: 110, sepStr: 2.5, sepAll: true,
         bounds: GIANT_TANK,
         facesVelocity: true,
       },
@@ -1027,7 +1028,7 @@ export class Opabinia extends Creature {
     super({
       species: 'opabinia',
       mesh: group,
-      position: new THREE.Vector3(
+      position: opts.position ?? new THREE.Vector3(
         THREE.MathUtils.randFloatSpread(GIANT_TANK.maxX * 0.7),
         THREE.MathUtils.randFloat(-12, 20),
         THREE.MathUtils.randFloatSpread(GIANT_TANK.maxZ * 0.7),
@@ -1038,6 +1039,7 @@ export class Opabinia extends Creature {
         depthMax: GIANT_TANK.maxY - 4,
         wanderMin: 6, wanderMax: 12,
         wallMargin: 10,
+        sepRadius: 80, sepStr: 2.0, sepAll: true,
         bounds: GIANT_TANK,
         facesVelocity: true,
       },
@@ -1323,7 +1325,7 @@ export class Anomalocaris extends Creature {
     super({
       species: 'anomalocaris',
       mesh: group,
-      position: new THREE.Vector3(
+      position: opts.position ?? new THREE.Vector3(
         THREE.MathUtils.randFloatSpread(GIANT_TANK.maxX * 0.7),
         THREE.MathUtils.randFloat(-15, 18),
         THREE.MathUtils.randFloatSpread(GIANT_TANK.maxZ * 0.7),
@@ -1334,6 +1336,7 @@ export class Anomalocaris extends Creature {
         depthMax: GIANT_TANK.maxY - 5,
         wanderMin: 8, wanderMax: 16,
         wallMargin: 12,
+        sepRadius: 90, sepStr: 2.0, sepAll: true,
         bounds: GIANT_TANK,
         facesVelocity: true,
       },
@@ -1528,7 +1531,7 @@ export class Cameroceras extends Creature {
     super({
       species: 'cameroceras',
       mesh: group,
-      position: new THREE.Vector3(
+      position: opts.position ?? new THREE.Vector3(
         THREE.MathUtils.randFloatSpread(GIANT_TANK.maxX * 0.6),
         THREE.MathUtils.randFloat(-20, 12),
         THREE.MathUtils.randFloatSpread(GIANT_TANK.maxZ * 0.6),
@@ -1539,6 +1542,7 @@ export class Cameroceras extends Creature {
         depthMax: GIANT_TANK.maxY - 8,
         wanderMin: 12, wanderMax: 22,
         wallMargin: 18,
+        sepRadius: 85, sepStr: 2.0, sepAll: true,
         bounds: GIANT_TANK,
         facesVelocity: true,
       },
@@ -2360,7 +2364,7 @@ export class BlueWhale extends Creature {
     super({
       species: 'bluewhale',
       mesh: group,
-      position: new THREE.Vector3(
+      position: opts.position ?? new THREE.Vector3(
         THREE.MathUtils.randFloatSpread(GIANT_TANK.maxX * 0.45),
         THREE.MathUtils.randFloat(0, GIANT_TANK.maxY - 14),
         THREE.MathUtils.randFloatSpread(GIANT_TANK.maxZ * 0.45),
@@ -2371,6 +2375,7 @@ export class BlueWhale extends Creature {
         depthMax: GIANT_TANK.maxY - 8,
         wanderMin: 26, wanderMax: 40,
         wallMargin: 42,
+        sepRadius: 120, sepStr: 2.8, sepAll: true,
         bounds: GIANT_TANK,
         facesVelocity: true,
       },
@@ -3018,7 +3023,7 @@ export class FrilledShark extends Creature {
     super({
       species: 'frilledshark',
       mesh: group,
-      position: new THREE.Vector3(
+      position: opts.position ?? new THREE.Vector3(
         THREE.MathUtils.randFloatSpread(GIANT_TANK.maxX * 0.65),
         THREE.MathUtils.randFloat(GIANT_TANK.floorY + 8, GIANT_TANK.floorY + 36),
         THREE.MathUtils.randFloatSpread(GIANT_TANK.maxZ * 0.65),
@@ -3029,6 +3034,7 @@ export class FrilledShark extends Creature {
         depthMax: GIANT_TANK.floorY + 50,    // prefers the lower water column
         wanderMin: 14, wanderMax: 22,
         wallMargin: 16,
+        sepRadius: 90, sepStr: 2.0, sepAll: true,
         bounds: GIANT_TANK,
         facesVelocity: true,
       },
@@ -3268,7 +3274,7 @@ export class Ammonite extends Creature {
     super({
       species: 'ammonite',
       mesh: group,
-      position: new THREE.Vector3(
+      position: opts.position ?? new THREE.Vector3(
         THREE.MathUtils.randFloatSpread(GIANT_TANK.maxX * 0.6),
         THREE.MathUtils.randFloat(-10, 24),
         THREE.MathUtils.randFloatSpread(GIANT_TANK.maxZ * 0.6),
@@ -3279,6 +3285,7 @@ export class Ammonite extends Creature {
         depthMax: GIANT_TANK.maxY - 10,
         wanderMin: 9, wanderMax: 16,
         wallMargin: 14,
+        sepRadius: 80, sepStr: 2.0, sepAll: true,
         bounds: GIANT_TANK,
         facesVelocity: true,
       },
@@ -3701,14 +3708,51 @@ export function launch() {
 
   // ── Creatures: exactly one of each species so the giant volume reads
   //    cleanly. Futabasaurus is sized as the apex of the four.
+
+  // Distribute n slots across the floor in a shuffled grid so every creature
+  // starts in its own sector of the tank rather than clumping at the centre.
+  function giantSpread(n, margin = 22) {
+    const cols = Math.ceil(Math.sqrt(n));
+    const rows = Math.ceil(n / cols);
+    const xMin = GIANT_TANK.minX + margin, xMax = GIANT_TANK.maxX - margin;
+    const zMin = GIANT_TANK.minZ + margin, zMax = GIANT_TANK.maxZ - margin;
+    const cellW = (xMax - xMin) / cols;
+    const cellD = (zMax - zMin) / rows;
+    const out = [];
+    outer: for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (out.length >= n) break outer;
+        out.push(new THREE.Vector2(
+          xMin + cellW * (c + 0.18 + Math.random() * 0.64),
+          zMin + cellD * (r + 0.18 + Math.random() * 0.64),
+        ));
+      }
+    }
+    // Shuffle so slot order doesn't always map to the same species
+    for (let i = out.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [out[i], out[j]] = [out[j], out[i]];
+    }
+    return out;
+  }
+
+  const sp = giantSpread(7);
+  const G  = GIANT_TANK;
   const creatures = [];
-  creatures.push(new Futabasaurus({ scale: 5.0, castShadow: !isMobile }));
-  creatures.push(new Anomalocaris({ scale: 2.8, castShadow: !isMobile }));
-  creatures.push(new Cameroceras ({ scale: 2.5, castShadow: !isMobile }));
-  creatures.push(new Opabinia    ({ scale: 3.4, castShadow: !isMobile }));
-  creatures.push(new BlueWhale   ({ scale: 5.0, castShadow: !isMobile }));
-  creatures.push(new FrilledShark({ scale: 3.6, castShadow: !isMobile }));
-  creatures.push(new Ammonite    ({ scale: 5.0, castShadow: !isMobile }));
+  creatures.push(new Futabasaurus({ scale: 5.0, castShadow: !isMobile,
+    position: new THREE.Vector3(sp[0].x, THREE.MathUtils.randFloat(-8, 22), sp[0].y) }));
+  creatures.push(new Anomalocaris({ scale: 2.8, castShadow: !isMobile,
+    position: new THREE.Vector3(sp[1].x, THREE.MathUtils.randFloat(-15, 18), sp[1].y) }));
+  creatures.push(new Cameroceras ({ scale: 2.5, castShadow: !isMobile,
+    position: new THREE.Vector3(sp[2].x, THREE.MathUtils.randFloat(-20, 12), sp[2].y) }));
+  creatures.push(new Opabinia    ({ scale: 3.4, castShadow: !isMobile,
+    position: new THREE.Vector3(sp[3].x, THREE.MathUtils.randFloat(-12, 20), sp[3].y) }));
+  creatures.push(new BlueWhale   ({ scale: 5.0, castShadow: !isMobile,
+    position: new THREE.Vector3(sp[4].x, THREE.MathUtils.randFloat(0, G.maxY - 14), sp[4].y) }));
+  creatures.push(new FrilledShark({ scale: 3.6, castShadow: !isMobile,
+    position: new THREE.Vector3(sp[5].x, THREE.MathUtils.randFloat(G.floorY + 8, G.floorY + 36), sp[5].y) }));
+  creatures.push(new Ammonite    ({ scale: 5.0, castShadow: !isMobile,
+    position: new THREE.Vector3(sp[6].x, THREE.MathUtils.randFloat(-10, 24), sp[6].y) }));
 
   for (const c of creatures) scene.add(c.mesh);
   state.creatures = creatures;
