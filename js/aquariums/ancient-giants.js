@@ -398,30 +398,60 @@ export class Futabasaurus extends Creature {
     const group = new THREE.Group();
     const uniforms = makeBendUniforms({ length: L, amp: 0.22, freq: 0.55, tailW: 1.4, curl: 0.5 });
 
-    // ── Main torso (sleek streamlined egg, slightly flattened) ─────────────
+    // ── Main torso (MEATY barrel — full midsection, no thin-middle artifact) ─
+    //
+    // Radii are scaled with `scale` so the body's mass actually matches its
+    // length budget; the previous profile used unscaled radii while the neck,
+    // tail, and flippers all multiplied by `scale`, which left the trunk
+    // looking pinched compared to the appendages. Profile shape: full barrel
+    // with the widest girth in the back-mid (matches plesiosaur reference
+    // illustrations), shoulder cap radius matches the neck base so the join
+    // is seamless, trailing cap matches the tail base for the same reason.
+    const NECK_BASE_R = 0.55 * scale;   // matches the neck tube's rBase below
+    const TAIL_BASE_R = 0.85 * scale;   // matches the tail tube's rBase below
     const bodyProfile = [
-      new THREE.Vector2(0.02,  +L * 0.18),
-      new THREE.Vector2(0.32,  +L * 0.16),
-      new THREE.Vector2(0.78,  +L * 0.12),
-      new THREE.Vector2(1.10,  +L * 0.07),
-      new THREE.Vector2(1.42,  +L * 0.02),
-      new THREE.Vector2(1.55,  -L * 0.04),
-      new THREE.Vector2(1.50,  -L * 0.10),
-      new THREE.Vector2(1.32,  -L * 0.16),
-      new THREE.Vector2(1.04,  -L * 0.22),
-      new THREE.Vector2(0.72,  -L * 0.26),
-      new THREE.Vector2(0.42,  -L * 0.28),
-      new THREE.Vector2(0.18,  -L * 0.30),
-      new THREE.Vector2(0.02,  -L * 0.31),
+      new THREE.Vector2(NECK_BASE_R,            +L * 0.180),  // shoulder cap (neck joins here)
+      new THREE.Vector2(0.95 * scale,           +L * 0.155),
+      new THREE.Vector2(1.55 * scale,           +L * 0.115),
+      new THREE.Vector2(2.10 * scale,           +L * 0.060),
+      new THREE.Vector2(2.55 * scale,           +L * 0.000),
+      new THREE.Vector2(2.85 * scale,           -L * 0.060),  // approaching widest
+      new THREE.Vector2(3.00 * scale,           -L * 0.115),  // ◀ WIDEST — full meaty belly
+      new THREE.Vector2(2.95 * scale,           -L * 0.165),
+      new THREE.Vector2(2.70 * scale,           -L * 0.205),
+      new THREE.Vector2(2.25 * scale,           -L * 0.235),
+      new THREE.Vector2(1.70 * scale,           -L * 0.258),
+      new THREE.Vector2(1.20 * scale,           -L * 0.275),
+      new THREE.Vector2(TAIL_BASE_R,            -L * 0.288),  // trailing cap (tail joins here)
     ];
-    const bodyGeo = new THREE.LatheGeometry(bodyProfile, 28);
+    const bodyGeo = new THREE.LatheGeometry(bodyProfile, 32);
     bodyGeo.rotateZ(-Math.PI / 2);
-    // Flatten the body slightly top-to-bottom (turtle-like)
+
+    // Sculpting pass: gentler vertical squash than before (rounded barrel,
+    // not turtle-flat), plus a midbody belly bulge so the underside hangs
+    // a little — matches the reference illustration's "圧倒的な肉感".
     {
       const p = bodyGeo.attributes.position;
+      // Body's local X spans approx [-L*0.18, +L*0.288]; midpoint ≈ +L*0.054
+      const midX = (+L * 0.180 - L * 0.288) * 0.5 + L * 0.054;  // ≈ midline of belly
+      const beltSigma = L * 0.18;
       for (let i = 0; i < p.count; i++) {
+        const x = p.getX(i);
         const y = p.getY(i);
-        p.setY(i, y * 0.78);
+        const z = p.getZ(i);
+
+        // Frontness: 0 at tail-trailing, 1 at shoulder. Used to vary
+        // cross-section subtly (chest a touch deeper than hips).
+        const frontness = THREE.MathUtils.smoothstep(x, -L * 0.27, +L * 0.16);
+        const yScale = THREE.MathUtils.lerp(0.92, 1.02, frontness);
+        const zScale = THREE.MathUtils.lerp(1.02, 0.98, frontness);
+
+        // Belly bulge — only pushes the underside down (y < 0)
+        const beltZone = Math.exp(-Math.pow((x - midX) / beltSigma, 2));
+        const yOffset  = (y < 0 ? beltZone * 0.45 * scale : 0);
+
+        p.setY(i, y * yScale - yOffset);
+        p.setZ(i, z * zScale);
       }
       bodyGeo.computeVertexNormals();
     }
@@ -538,13 +568,31 @@ export class Futabasaurus extends Creature {
     const tail = new THREE.Mesh(tailGeo, tailMat);
     group.add(tail);
 
-    // ── Dorsal ridge — subtle row of small bumps along the back ────────────
+    // ── Dorsal ridge — small bumps that actually sit on the body surface ──
+    // The body's local-Y top edge varies along X (curve of the back). We
+    // sample the lathe profile to place each bump exactly on the skin.
     const ridgeMat = new THREE.MeshStandardMaterial({ color: 0x2a4658, roughness: 0.55, metalness: 0.06 });
-    for (let i = 0; i < 9; i++) {
-      const t = i / 8;
-      const x = THREE.MathUtils.lerp(-L * 0.25, +L * 0.12, t);
-      const bump = new THREE.Mesh(new THREE.ConeGeometry(0.08 * scale, 0.16 * scale, 6), ridgeMat);
-      bump.position.set(x, +L * 0.12, 0);
+    // Helper: linearly interp the body's top radius at a given X.
+    // bodyProfile entries are (radius, Y_in_local) — after rotateZ(-PI/2) the
+    // Y axis becomes the local X axis. Sample between the entries.
+    function bodyTopAt(x) {
+      // bodyProfile is sorted descending in Y (which becomes X after rotate)
+      // — so the first entry is at largest X (+L*0.180), last at smallest (-L*0.288)
+      let prev = bodyProfile[0], next = bodyProfile[bodyProfile.length - 1];
+      for (let i = 1; i < bodyProfile.length; i++) {
+        if (bodyProfile[i].y <= x) { next = bodyProfile[i]; prev = bodyProfile[i - 1]; break; }
+      }
+      const span = prev.y - next.y;
+      const t = span > 1e-6 ? (prev.y - x) / span : 0;
+      const r = THREE.MathUtils.lerp(prev.x, next.x, t);
+      return r * 0.92;  // yScale used in the sculpting pass (chest≈1.02, hips≈0.92, average lower)
+    }
+    for (let i = 0; i < 11; i++) {
+      const t = i / 10;
+      const x = THREE.MathUtils.lerp(-L * 0.22, +L * 0.14, t);
+      const yTop = bodyTopAt(x);
+      const bump = new THREE.Mesh(new THREE.ConeGeometry(0.10 * scale, 0.22 * scale, 7), ridgeMat);
+      bump.position.set(x, yTop, 0);
       group.add(bump);
     }
 
