@@ -116,6 +116,7 @@ export function initControls({
 
   function creatureHitRadius(c) {
     switch (c.species) {
+      case 'futabasaurus': return 4.5;   // long neck + body — generous hit volume
       case 'pirarucu':   return 3.0;
       case 'coelacanth': return 2.6;
       case 'gar':        return 2.2;

@@ -6,6 +6,7 @@ import { Gar }          from './creatures/Gar.js';
 import { Pirarucu }     from './creatures/Pirarucu.js';
 import { Trilobite }    from './creatures/Trilobite.js';
 import { GiantIsopod }  from './creatures/GiantIsopod.js';
+import { Futabasaurus } from './creatures/Futabasaurus.js';
 import { initControls } from './controls.js';
 import { initAudio }    from './audio.js';
 
@@ -60,8 +61,8 @@ const sceneApi = buildScene(scene, { isMobile });
 
 const creatures = [];
 const counts = isMobile
-  ? { jellyfish: 3, coelacanth: 1, gar: 1, pirarucu: 1, trilobite: 3, isopod: 2 }
-  : { jellyfish: 5, coelacanth: 2, gar: 2, pirarucu: 1, trilobite: 4, isopod: 3 };
+  ? { jellyfish: 3, coelacanth: 1, gar: 1, pirarucu: 1, trilobite: 3, isopod: 2, futaba: 1 }
+  : { jellyfish: 5, coelacanth: 2, gar: 2, pirarucu: 1, trilobite: 4, isopod: 3, futaba: 1 };
 
 for (let i = 0; i < counts.jellyfish; i++)  creatures.push(addToScene(new Jellyfish()));
 for (let i = 0; i < counts.coelacanth; i++) creatures.push(addToScene(new Coelacanth({ castShadow: !isMobile })));
@@ -69,6 +70,7 @@ for (let i = 0; i < counts.gar; i++)        creatures.push(addToScene(new Gar({ 
 for (let i = 0; i < counts.pirarucu; i++)   creatures.push(addToScene(new Pirarucu({ castShadow: !isMobile })));
 for (let i = 0; i < counts.trilobite; i++)  creatures.push(addToScene(new Trilobite({ castShadow: !isMobile })));
 for (let i = 0; i < counts.isopod; i++)     creatures.push(addToScene(new GiantIsopod({ castShadow: !isMobile })));
+for (let i = 0; i < counts.futaba; i++)     creatures.push(addToScene(new Futabasaurus({ castShadow: !isMobile })));
 
 function addToScene(c) { scene.add(c.mesh); return c; }
 
