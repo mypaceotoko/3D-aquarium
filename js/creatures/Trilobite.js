@@ -205,6 +205,7 @@ export class Trilobite extends Creature {
         depthMax: FLOOR + 0.32,
         wanderMin: 5, wanderMax: 10,
         wallMargin: 3.5,
+        sepRadius: 5, sepStr: 1.2,
         reactsToFood: false,
         facesVelocity: true,
       },

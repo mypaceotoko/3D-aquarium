@@ -175,6 +175,7 @@ export class Gar extends Creature {
         depthMax: TANK.maxY - 3.0,
         wanderMin: 6, wanderMax: 11,
         wallMargin: 4.5,
+        sepRadius: 7, sepStr: 1.8,
         reactsToFood: true,
         facesVelocity: true,
       },

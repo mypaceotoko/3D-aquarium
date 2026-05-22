@@ -68,17 +68,79 @@ const sceneApi = buildScene(scene, { isMobile });
 // Spawn creatures
 // ---------------------------------------------------------------------
 
+// Distribute `count` positions evenly across the floor using a grid,
+// with random jitter within each cell to avoid a rigid lattice look.
+function spreadFloorPositions(count, marginX = 5, marginZ = 5) {
+  const cols = Math.ceil(Math.sqrt(count));
+  const rows = Math.ceil(count / cols);
+  const xMin = TANK.minX + marginX, xMax = TANK.maxX - marginX;
+  const zMin = TANK.minZ + marginZ, zMax = TANK.maxZ - marginZ;
+  const cellW = (xMax - xMin) / cols;
+  const cellD = (zMax - zMin) / rows;
+  const out = [];
+  outer: for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (out.length >= count) break outer;
+      out.push(new THREE.Vector3(
+        xMin + cellW * (c + 0.2 + Math.random() * 0.6),
+        TANK.floorY,
+        zMin + cellD * (r + 0.2 + Math.random() * 0.6),
+      ));
+    }
+  }
+  return out;
+}
+
+// Distribute `count` positions spread through the mid-water volume.
+function spreadVolumePositions(count, marginX = 6, marginZ = 6, yMin, yMax) {
+  const _yMin = yMin ?? TANK.floorY + 3;
+  const _yMax = yMax ?? TANK.maxY - 2;
+  const cols = Math.ceil(Math.sqrt(count));
+  const rows = Math.ceil(count / cols);
+  const xMin = TANK.minX + marginX, xMax = TANK.maxX - marginX;
+  const zMin = TANK.minZ + marginZ, zMax = TANK.maxZ - marginZ;
+  const cellW = (xMax - xMin) / cols;
+  const cellD = (zMax - zMin) / rows;
+  const out = [];
+  outer: for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (out.length >= count) break outer;
+      out.push(new THREE.Vector3(
+        xMin + cellW * (c + 0.2 + Math.random() * 0.6),
+        THREE.MathUtils.randFloat(_yMin, _yMax),
+        zMin + cellD * (r + 0.2 + Math.random() * 0.6),
+      ));
+    }
+  }
+  return out;
+}
+
 const creatures = [];
 const counts = isMobile
   ? { jellyfish: 3, coelacanth: 1, gar: 1, pirarucu: 1, trilobite: 3, isopod: 2 }
   : { jellyfish: 5, coelacanth: 2, gar: 2, pirarucu: 1, trilobite: 4, isopod: 3 };
 
 for (let i = 0; i < counts.jellyfish; i++)  creatures.push(addToScene(new Jellyfish()));
-for (let i = 0; i < counts.coelacanth; i++) creatures.push(addToScene(new Coelacanth({ castShadow: !isMobile })));
-for (let i = 0; i < counts.gar; i++)        creatures.push(addToScene(new Gar({ castShadow: !isMobile })));
+
+const coelPositions = spreadVolumePositions(counts.coelacanth, 6, 6, TANK.floorY + 2, TANK.floorY + 9);
+for (let i = 0; i < counts.coelacanth; i++) creatures.push(addToScene(new Coelacanth({ castShadow: !isMobile, position: coelPositions[i] })));
+
+const garPositions = spreadVolumePositions(counts.gar, 6, 6, TANK.floorY + 3, TANK.maxY - 3);
+for (let i = 0; i < counts.gar; i++)        creatures.push(addToScene(new Gar({ castShadow: !isMobile, position: garPositions[i] })));
+
 for (let i = 0; i < counts.pirarucu; i++)   creatures.push(addToScene(new Pirarucu({ castShadow: !isMobile })));
-for (let i = 0; i < counts.trilobite; i++)  creatures.push(addToScene(new Trilobite({ castShadow: !isMobile })));
-for (let i = 0; i < counts.isopod; i++)     creatures.push(addToScene(new GiantIsopod({ castShadow: !isMobile })));
+
+const triloPositions = spreadFloorPositions(counts.trilobite);
+for (let i = 0; i < counts.trilobite; i++) {
+  const pos = triloPositions[i].clone().setY(TANK.floorY + 0.25);
+  creatures.push(addToScene(new Trilobite({ castShadow: !isMobile, position: pos })));
+}
+
+const isopodPositions = spreadFloorPositions(counts.isopod);
+for (let i = 0; i < counts.isopod; i++) {
+  const pos = isopodPositions[i].clone().setY(TANK.floorY + 0.30);
+  creatures.push(addToScene(new GiantIsopod({ castShadow: !isMobile, position: pos })));
+}
 
 // Leviathan — always exactly one, regardless of mobile/desktop
 creatures.push(addToScene(new Leviathan({ castShadow: !isMobile })));
@@ -92,6 +154,9 @@ function addToScene(c) { scene.add(c.mesh); return c; }
 state.creatures = creatures;
 
 const getCreatures = () => creatures;
+
+// Make creatures visible to each other for separation steering
+state.creatures = creatures;
 
 // ---------------------------------------------------------------------
 // Food manager

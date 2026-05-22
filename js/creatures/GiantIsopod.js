@@ -213,6 +213,7 @@ export class GiantIsopod extends Creature {
         depthMax: FLOOR + 0.40,
         wanderMin: 6, wanderMax: 14,
         wallMargin: 3.5,
+        sepRadius: 4.5, sepStr: 1.1,
         reactsToFood: false,
         facesVelocity: true,
       },
