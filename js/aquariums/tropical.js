@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TANK } from '../scene.js';
 import { Creature } from '../creatures/Creature.js';
+import { Dugong } from '../creatures/Dugong.js';
 import { initObservation } from '../interaction/observationManager.js';
 import { initAquariumAudio } from '../audio-aquarium.js';
 
@@ -50,8 +51,8 @@ export function launch() {
   // ── Creatures ────────────────────────────────────────────────────────────
   const creatures = [];
   const counts = isMobile
-    ? { clown: 2, tetra: 5, turtle: 1, guppy: 4, shrimp: 3, seahorse: 1, eel: 6 }
-    : { clown: 3, tetra: 8,  turtle: 1, guppy: 6, shrimp: 5, seahorse: 2, eel: 10 };
+    ? { clown: 2, tetra: 5, turtle: 1, guppy: 4, shrimp: 3, seahorse: 1, eel: 6, dugong: 1 }
+    : { clown: 3, tetra: 8,  turtle: 1, guppy: 6, shrimp: 5, seahorse: 2, eel: 10, dugong: 2 };
 
   for (let i = 0; i < counts.clown;    i++) creatures.push(add(scene, new Clownfish()));
   for (let i = 0; i < counts.tetra;    i++) creatures.push(add(scene, new NeonTetra()));
@@ -59,6 +60,8 @@ export function launch() {
   for (let i = 0; i < counts.shrimp;   i++) creatures.push(add(scene, new Shrimp()));
   for (let i = 0; i < counts.seahorse; i++) creatures.push(add(scene, new Seahorse()));
   creatures.push(add(scene, new SeaTurtle()));
+  // Gentle dugong — chubby herbivore grazing near the seafloor
+  for (let i = 0; i < counts.dugong;   i++) creatures.push(add(scene, new Dugong({ castShadow: !isMobile })));
   // Chin-anago colony — two clusters of garden eels poking out of the sand
   for (const anchor of buildGardenEelColonies(counts.eel)) {
     creatures.push(add(scene, new GardenEel(anchor)));
@@ -201,6 +204,7 @@ function buildUI(obs, renderer, audio, onFeed) {
   const sGroup = document.createElement('div');
   sGroup.className = 'group species';
   const SPECIES = [
+    { id: 'dugong',     label: 'ジュゴン' },
     { id: 'clownfish',  label: 'クマノミ' },
     { id: 'neon-tetra', label: 'ネオンテトラ' },
     { id: 'sea-turtle', label: 'ウミガメ' },
