@@ -268,7 +268,7 @@ function buildDugongMesh({ scale, castShadow }) {
   tailPivot.add(peduncle);
 
   // Fluke crescent
-  const flukeGeo = makeFlukeGeometry({ span: 1.30, back: 0.85 });
+  const flukeGeo = makeFlukeGeometry({ span: 1.55, back: 0.95 });
   const flukeMesh = new THREE.Mesh(flukeGeo, flukeM);
   flukeMesh.position.set(-0.20, 0, 0);
   flukeMesh.castShadow = castShadow;
@@ -306,23 +306,57 @@ function makeFlipper(material, side) {
   return m;
 }
 
-// ─── Crescent fluke geometry (smooth & cute) ────────────────────────────
+// ─── Crescent fluke geometry — 三日月形 dolphin/dugong tail ───────────────
+// Two pointed lobes sweep outward (with modest back-sweep) and the trailing
+// edge has a clear V-notch in the middle so the silhouette reads clearly as
+// a crescent. Control points are chosen so the bezier tangents meet at the
+// tip from different directions → the lobe tips read as proper points
+// instead of a smooth rounded arc.
 function makeFlukeGeometry({ span, back }) {
+  const FB = back, FW = span;
+
   const s = new THREE.Shape();
-  s.moveTo(0, 0);
-  s.quadraticCurveTo(+0.05 * back, +span * 0.40, -0.25 * back, +span * 0.95);
-  s.quadraticCurveTo(-0.60 * back, +span * 1.00, -0.95 * back, +span * 0.70);
-  s.quadraticCurveTo(-1.05 * back, +span * 0.30, -0.90 * back, +span * 0.10);
-  s.quadraticCurveTo(-0.55 * back, +span * 0.05, -0.35 * back, 0);
-  s.quadraticCurveTo(-0.55 * back, -span * 0.05, -0.90 * back, -span * 0.10);
-  s.quadraticCurveTo(-1.05 * back, -span * 0.30, -0.95 * back, -span * 0.70);
-  s.quadraticCurveTo(-0.60 * back, -span * 1.00, -0.25 * back, -span * 0.95);
-  s.quadraticCurveTo(+0.05 * back, -span * 0.40, 0, 0);
+  s.moveTo(0, 0);   // attachment point (front-center)
+
+  // ── RIGHT lobe ──
+  // Leading edge (front of the fluke) — gentle outward sweep from the
+  // attachment toward the tip. Control 2 is just inside the tip so the
+  // leading-edge tangent arrives nearly parallel to the +Y axis (pointed).
+  s.bezierCurveTo(
+    -FB * 0.10, +FW * 0.32,
+    -FB * 0.42, +FW * 0.92,
+    -FB * 0.62, +FW * 1.00,    // RIGHT TIP
+  );
+  // Trailing edge (back of the fluke) — concave inward curve from the tip
+  // back to the notch shoulder. Control 1 sits backward & inboard of the
+  // tip so the trailing-edge tangent LEAVES the tip going mostly in -Y,
+  // i.e., at an angle to the leading-edge arrival → POINTED tip.
+  s.bezierCurveTo(
+    -FB * 0.92, +FW * 0.92,
+    -FB * 0.92, +FW * 0.30,
+    -FB * 0.62, +FW * 0.16,    // notch shoulder
+  );
+  // V-notch into the centerline (clear inward indent)
+  s.lineTo(-FB * 0.35, 0);     // notch bottom
+
+  // ── LEFT lobe (mirror) ──
+  s.lineTo(-FB * 0.62, -FW * 0.16);
+  s.bezierCurveTo(
+    -FB * 0.92, -FW * 0.30,
+    -FB * 0.92, -FW * 0.92,
+    -FB * 0.62, -FW * 1.00,    // LEFT TIP
+  );
+  s.bezierCurveTo(
+    -FB * 0.42, -FW * 0.92,
+    -FB * 0.10, -FW * 0.32,
+    0, 0,                      // back to attachment
+  );
+
   const geo = new THREE.ExtrudeGeometry(s, {
     depth: 0.10, bevelEnabled: true, bevelSize: 0.05, bevelThickness: 0.04,
-    bevelSegments: 2, curveSegments: 12,
+    bevelSegments: 2, curveSegments: 18,
   });
-  // Shape currently in X-Y; rotate so it lies in X-Z (horizontal fluke)
+  // Shape currently lives in X-Y; rotate so it lies in X-Z (horizontal fluke)
   geo.rotateX(-Math.PI / 2);
   geo.translate(0, -0.05, 0);   // center the thickness around y=0
   geo.computeVertexNormals();
