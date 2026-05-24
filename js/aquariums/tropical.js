@@ -52,7 +52,7 @@ export function launch() {
   const creatures = [];
   const counts = isMobile
     ? { clown: 2, tetra: 5, turtle: 1, guppy: 4, shrimp: 3, seahorse: 1, eel: 6, dugong: 1 }
-    : { clown: 3, tetra: 8,  turtle: 1, guppy: 6, shrimp: 5, seahorse: 2, eel: 10, dugong: 2 };
+    : { clown: 3, tetra: 8,  turtle: 1, guppy: 6, shrimp: 5, seahorse: 2, eel: 10, dugong: 1 };
 
   for (let i = 0; i < counts.clown;    i++) creatures.push(add(scene, new Clownfish()));
   for (let i = 0; i < counts.tetra;    i++) creatures.push(add(scene, new NeonTetra()));
