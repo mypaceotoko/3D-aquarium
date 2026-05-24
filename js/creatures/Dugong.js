@@ -184,41 +184,46 @@ function buildDugongMesh({ scale, castShadow }) {
 
   // ── EYES — big sparkly anime style ────────────────────────────────────
   // Layered: white sclera → dark iris → black pupil → two white highlights.
-  // Geometry depth-stacks along +Z (outward) so the highlights sit on top.
+  // Positioned on the *front* of the head (chibi face proportions) so both
+  // eyes read clearly from any angle, not just one at a time like a fish.
+  // Geometry stacks in +Z (outward from anchor); the anchor's +Z is oriented
+  // forward-and-slightly-outward via setFromUnitVectors.
   for (const side of [-1, 1]) {
     const eyeAnchor = new THREE.Group();
-    // Sit on the upper-front quadrant of the head sphere
-    eyeAnchor.position.set(+0.62, +0.18, 0.55 * side);
-    // Slight outward tilt so eyes face front-out (not straight sideways)
-    eyeAnchor.rotation.y = (side > 0 ?  0.55 : -0.55);
-    eyeAnchor.rotation.x = -0.10;
+    // On the upper-front of the head sphere — sits just outside the surface
+    // so the eye protrudes cleanly instead of being eaten by the head mesh.
+    eyeAnchor.position.set(+0.92, +0.30, 0.42 * side);
+    // Face mostly forward (+X) with ~17° outward tilt so both eyes show
+    // from 3/4 views without the silhouette flattening from direct front.
+    const lookDir = new THREE.Vector3(1, 0.10, 0.30 * side).normalize();
+    eyeAnchor.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), lookDir);
     headGroup.add(eyeAnchor);
 
     // White sclera — slightly taller-than-wide for the cartoony "big eye"
-    const sclera = new THREE.Mesh(new THREE.SphereGeometry(0.22, 18, 14), eyeWhite);
+    const sclera = new THREE.Mesh(new THREE.SphereGeometry(0.24, 18, 14), eyeWhite);
     sclera.scale.set(1.0, 1.12, 0.45);
     eyeAnchor.add(sclera);
 
     // Dark iris
-    const iris = new THREE.Mesh(new THREE.SphereGeometry(0.18, 16, 12), eyeIris);
+    const iris = new THREE.Mesh(new THREE.SphereGeometry(0.20, 16, 12), eyeIris);
     iris.scale.set(1.0, 1.0, 0.30);
-    iris.position.z = 0.10;
+    iris.position.z = 0.11;
     eyeAnchor.add(iris);
 
     // Pupil
-    const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.125, 14, 10), eyeBlack);
+    const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.135, 14, 10), eyeBlack);
     pupil.scale.set(1.0, 1.0, 0.25);
-    pupil.position.z = 0.14;
+    pupil.position.z = 0.15;
     eyeAnchor.add(pupil);
 
     // Big highlight — upper-left of the pupil
-    const shine1 = new THREE.Mesh(new THREE.SphereGeometry(0.060, 10, 8), eyeShine);
-    shine1.position.set(-0.06, +0.07, 0.18);
+    const shine1 = new THREE.Mesh(new THREE.SphereGeometry(0.065, 10, 8), eyeShine);
+    shine1.position.set(-0.07, +0.08, 0.19);
     shine1.scale.set(1.0, 1.0, 0.3);
     eyeAnchor.add(shine1);
     // Small second highlight — lower-right
-    const shine2 = new THREE.Mesh(new THREE.SphereGeometry(0.030, 8, 6), eyeShine);
-    shine2.position.set(+0.05, -0.05, 0.18);
+    const shine2 = new THREE.Mesh(new THREE.SphereGeometry(0.032, 8, 6), eyeShine);
+    shine2.position.set(+0.06, -0.06, 0.19);
     shine2.scale.set(1.0, 1.0, 0.3);
     eyeAnchor.add(shine2);
   }
@@ -226,11 +231,9 @@ function buildDugongMesh({ scale, castShadow }) {
   // ── Pink cheek blush — flat circles glued to the head surface ───────
   for (const side of [-1, 1]) {
     const blush = new THREE.Mesh(new THREE.CircleGeometry(0.17, 20), cheek);
-    blush.position.set(+0.55, -0.15, 0.78 * side);
-    // Orient the disk so its normal (+Z by default) points outward away from
-    // the head center — lookAt makes the local -Z point at the target, so the
-    // disk's front (+Z) ends up pointing away from origin. Use the inverse
-    // direction by passing the head-center as the target.
+    blush.position.set(+0.65, -0.05, 0.72 * side);
+    // CircleGeometry's normal is +Z. lookAt makes local -Z face the target,
+    // so targeting the head center (origin) leaves +Z facing OUTWARD ✓
     blush.lookAt(0, 0, 0);
     headGroup.add(blush);
   }
